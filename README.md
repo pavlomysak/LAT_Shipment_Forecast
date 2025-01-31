@@ -36,10 +36,14 @@ This application provides a three-part solution to address these challenges:
 
 
 ## Key Features
-✔️ Forecast Amazon Seller Central demand using LightGBM
-✔️ Simulate rolling inventory based on projected demand and shipments
-✔️ Dynamically adjust shipments & instantly visualize impact on inventory levels
-✔️ Prevent stockouts and overstocking with proactive planning
+✔️ Forecast Amazon Seller Central demand using LightGBM   
+
+✔️ Simulate rolling inventory based on projected demand and shipments   
+
+✔️ Dynamically adjust shipments & instantly visualize impact on inventory levels   
+
+✔️ Prevent stockouts and overstocking with proactive planning   
+
 ✔️ Built-in interactivity for non-technical stakeholders
 
 ## Impact & Business Value
@@ -51,7 +55,9 @@ By implementing this tool, I transformed a manual, reactive process into a proac
 - Make data-driven decisions, leading to better forecasting accuracy and profitability.
 
 ## Technical Stack
-Frontend: Streamlit (for interactive UI)
-Backend & Forecasting: Python, Pandas, NumPy, LightGBM
+Frontend: Streamlit (for interactive UI)   
+
+Backend & Forecasting: Python, Pandas, NumPy, LightGBM   
+
 Visualization: Altair
 
