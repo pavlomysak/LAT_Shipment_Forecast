@@ -71,7 +71,8 @@ if excel_sht:
                                                                    verbose=1),
                                          window_features = RollingFeatures(stats=['mean', 'min', 'max'], window_sizes=8),
                                          transformer_y = RobustScaler(),
-                                         differentiation = 1
+                                         differentiation = 1,
+                                         lags = 8
                                          )
         
         results_grid = grid_search_forecaster(forecaster = LGBM_forec,
@@ -80,7 +81,6 @@ if excel_sht:
                                                             "n_estimators":[300],
                                                             "learning_rate":[0.001, 0.05, 0.1],
                                                             "boosting_type":["gbdt", "dart"]},
-                                               lags_grid = lags_grid,
                                                cv = cv,
                                                metric = 'mean_squared_error',
                                                return_best = True,
@@ -223,7 +223,8 @@ if excel_sht:
                                                                        verbose=1),
                                              window_features = RollingFeatures(stats=['mean', 'min', 'max'], window_sizes=8),
                                              transformer_y = RobustScaler(),
-                                             differentiation = 1
+                                             differentiation = 1,
+                                             lags = 8
                                              )
             
             results_grid = grid_search_forecaster(forecaster = LGBM_forec,
@@ -232,7 +233,6 @@ if excel_sht:
                                                                 "n_estimators":[300],
                                                                 "learning_rate":[0.001, 0.05, 0.1],
                                                                 "boosting_type":["gbdt", "dart"]},
-                                                   lags_grid = lags_grid,
                                                    cv = cv,
                                                    metric = 'mean_squared_error',
                                                    return_best = True,
