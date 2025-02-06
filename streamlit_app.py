@@ -5,6 +5,9 @@ import altair as alt
 from lightgbm import LGBMRegressor
 from skforecast.preprocessing import RollingFeatures
 from skforecast.recursive import ForecasterRecursive
+from skforecast.model_selection import TimeSeriesFold
+from skforecast.model_selection import backtesting_forecaster
+from skforecast.model_selection import grid_search_forecaster
 from sklearn.preprocessing import RobustScaler
 
 
