@@ -82,7 +82,7 @@ if excel_sht:
                                                metric = 'mean_squared_error',
                                                return_best = True,
                                                n_jobs = 'auto',
-                                               verbose = 1,
+                                               verbose = False,
                                                show_progress = False
                                                )
 
@@ -234,7 +234,7 @@ if excel_sht:
                                                    metric = 'mean_squared_error',
                                                    return_best = True,
                                                    n_jobs = 'auto',
-                                                   verbose = 1,
+                                                   verbose = False,
                                                    show_progress = False
                                                    )
 
