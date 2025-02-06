@@ -82,11 +82,11 @@ if excel_sht:
     SC_demand_filled = pd.merge(skeleton_df, SC_demand, on=["SKU", "Week Ending"], how="left").set_index("Week Ending").fillna(0)
 
     # Initializing crossfold validation
-    cv = TimeSeriesFold(steps = 10,
-                     initial_train_size = 50,
-                     refit = True,
-                     differentiation = 1
-                     )
+    #cv = TimeSeriesFold(steps = 10,
+     #                initial_train_size = 50,
+      #               refit = True,
+       #              differentiation = 1
+        #             )
   
     ###############################
     # BEGIN BTO
@@ -106,23 +106,24 @@ if excel_sht:
                                                                    verbose=1,
                                                                   max_depth = 10,
                                                                   n_estimators = 300,
-                                                                  boosting_type = "dart"),
+                                                                  boosting_type = "dart",
+                                                                  learning_rate = 0.01),
                                          window_features = RollingFeatures(stats=['mean', 'min', 'max'], window_sizes=8),
                                          transformer_y = RobustScaler(),
                                          differentiation = 1,
                                          lags = 8
                                          )
         
-        results_grid = grid_search_forecaster(forecaster = LGBM_forec,
-                                               y = SC_demand_filled[SC_demand_filled["SKU"]==sc_sku].loc[:,"Units Sold"].reset_index(drop=True),
-                                               param_grid = {"learning_rate":[0.1, 0.05, 0.01]},
-                                               cv = cv,
-                                               metric = 'mean_squared_error',
-                                               return_best = True,
-                                               n_jobs = 'auto',
-                                               verbose = False,
-                                               show_progress = False
-                                               )
+        #results_grid = grid_search_forecaster(forecaster = LGBM_forec,
+         #                                      y = SC_demand_filled[SC_demand_filled["SKU"]==sc_sku].loc[:,"Units Sold"].reset_index(drop=True),
+          #                                     param_grid = {"learning_rate":[0.1, 0.05, 0.01]},
+           #                                    cv = cv,
+            #                                   metric = 'mean_squared_error',
+             #                                  return_best = True,
+              #                                 n_jobs = 'auto',
+               #                                verbose = False,
+                #                               show_progress = False
+                 #                              )
 
         LGBM_forec.fit(y=SC_demand_filled[SC_demand_filled["SKU"] == sc_sku].loc[:, "Units Sold"])
 
@@ -258,23 +259,24 @@ if excel_sht:
                                                                        verbose=1,
                                                                       max_depth = 10,
                                                                       n_estimators = 300,
-                                                                      boosting_type = "dart"),
+                                                                      boosting_type = "dart",
+                                                                      learning_rate = 0.05),
                                              window_features = RollingFeatures(stats=['mean', 'min', 'max'], window_sizes=8),
                                              transformer_y = RobustScaler(),
                                              differentiation = 1,
                                              lags = 8
                                              )
             
-            results_grid = grid_search_forecaster(forecaster = LGBM_forec,
-                                                   y = SC_demand_filled[SC_demand_filled["SKU"]==sc_sku].loc[:,"Units Sold"].reset_index(drop=True),
-                                                   param_grid = {"learning_rate":[0.1, 0.05, 0.01]},
-                                                   cv = cv,
-                                                   metric = 'mean_squared_error',
-                                                   return_best = True,
-                                                   n_jobs = 'auto',
-                                                   verbose = False,
-                                                   show_progress = False
-                                                   )
+            #results_grid = grid_search_forecaster(forecaster = LGBM_forec,
+             #                                      y = SC_demand_filled[SC_demand_filled["SKU"]==sc_sku].loc[:,"Units Sold"].reset_index(drop=True),
+              #                                     param_grid = {"learning_rate":[0.1, 0.05, 0.01]},
+               #                                    cv = cv,
+                #                                   metric = 'mean_squared_error',
+                 #                                  return_best = True,
+                  #                                 n_jobs = 'auto',
+                   #                                verbose = False,
+                    #                               show_progress = False
+                     #                              )
 
             LGBM_forec.fit(y=SC_demand_filled[SC_demand_filled["SKU"] == sc_sku].loc[:, "Units Sold"])
 
