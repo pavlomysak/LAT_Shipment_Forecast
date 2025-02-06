@@ -331,9 +331,9 @@ if excel_sht:
 
                 if st.button("Add Shipment", key = "WTO_Add_Shipment"):
                     if shp_qty > 0:
-                        new_shipment = pd.DataFrame([{"Week Ending": pd.to_datetime(shp_dt + pd.TimeDelta(lead_time)), "Quantity": shp_qty}])
+                        new_shipment = pd.DataFrame([{"Week Ending": pd.to_datetime(shp_dt + pd.Timedelta(lead_time)), "Quantity": shp_qty}])
                         st.session_state.wto_shipments = pd.concat([st.session_state.wto_shipments, new_shipment], ignore_index=True)
-                        st.success(f"Shipment of {shp_qty} units added for {pd.to_datetime(shp_dt + pd.TimeDelta(lead_time))}.")
+                        st.success(f"Shipment of {shp_qty} units added for {pd.to_datetime(shp_dt + pd.Timedelta(lead_time))}.")
 
             # Update shipment values in prediction_df
                     shipment_df = pd.DataFrame(st.session_state.wto_shipments).groupby(pd.Grouper(key = "Week Ending",
