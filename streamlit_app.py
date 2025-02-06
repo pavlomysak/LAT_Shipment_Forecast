@@ -18,6 +18,41 @@ excel_sht = st.file_uploader(label = "Upload SC Rolling Sales Report",
 
 intro_tab, bto_tab, wto_tab = st.tabs(["Instructions", "BTO", "WTO"])
 
+with intro_tab:
+
+    st.subheader("Welcome! This tool will help us plan Amazon SC Shipments into the future.")
+
+    st.markdown("""
+                How to use it:
+                - Click "Browse Files" above and upload Amazon Seller Central Report Rolling from teams.
+
+                - Select any of the product tabs above to get started:
+                    - At the top will be a 20-week demand forecast. 
+                    - To view forecasted inventory, input the **current inventory level** (Found in Safety Stock Report), and the **minimum quantity desired** for this product.
+                    - Examine the **Shipment Planning Chart** and use the *Add Shipment* feature to plan accordingly.
+                    - Once all your shipments are planned, click "Download Shipments CSV" and submit to Pavlo.
+                    - If you'd like to redo your shipment planning, click **Clear Session State** at the bottom of this page.
+                
+                Happy forecasting!
+                """)
+
+    st.divider()
+    st.markdown("""
+             Here's how it works: 
+             - We use LightGBM to forecast product-level demand.
+             - Using this demand forecast, we create an inventory forecast by 
+                cumulatively subtracting the starting inventory from the forecasted demand.
+             - We create and add planned shipments and update the rolling inventory forecast.
+             - We save the shipment data in a csv and download.""")
+    
+    st.divider()
+    st.write("RESTART SESSION HERE:")
+
+    clear_state = st.button(label = "Clear Session State")
+
+    if clear_state:
+        st.session_state.clear()
+      
 if excel_sht:
     SC_demand = pd.read_excel(excel_sht,
                             sheet_name = "Data")[["Week Ending", "SKU", "Units Ordered", "Units Ordered - B2B"]].rename({"Units Ordered":"Units Sold",
@@ -68,7 +103,10 @@ if excel_sht:
 
         # LightGBM Forecaster
         LGBM_forec = ForecasterRecursive(regressor = LGBMRegressor(random_state = 42, 
-                                                                   verbose=1),
+                                                                   verbose=1,
+                                                                  max_depth = 10,
+                                                                  n_estimators = 300,
+                                                                  boosting_type = "dart"),
                                          window_features = RollingFeatures(stats=['mean', 'min', 'max'], window_sizes=8),
                                          transformer_y = RobustScaler(),
                                          differentiation = 1,
@@ -77,10 +115,7 @@ if excel_sht:
         
         results_grid = grid_search_forecaster(forecaster = LGBM_forec,
                                                y = SC_demand_filled[SC_demand_filled["SKU"]==sc_sku].loc[:,"Units Sold"].reset_index(drop=True),
-                                               param_grid = {"max_depth":[10],
-                                                            "n_estimators":[300],
-                                                            "learning_rate":[0.001, 0.05, 0.1],
-                                                            "boosting_type":["gbdt", "dart"]},
+                                               param_grid = {"learning_rate":[0.1, 0.05, 0.01]},
                                                cv = cv,
                                                metric = 'mean_squared_error',
                                                return_best = True,
@@ -220,7 +255,10 @@ if excel_sht:
 
             # LightGBM Forecaster
             LGBM_forec = ForecasterRecursive(regressor = LGBMRegressor(random_state = 42, 
-                                                                       verbose=1),
+                                                                       verbose=1,
+                                                                      max_depth = 10,
+                                                                      n_estimators = 300,
+                                                                      boosting_type = "dart"),
                                              window_features = RollingFeatures(stats=['mean', 'min', 'max'], window_sizes=8),
                                              transformer_y = RobustScaler(),
                                              differentiation = 1,
@@ -229,10 +267,7 @@ if excel_sht:
             
             results_grid = grid_search_forecaster(forecaster = LGBM_forec,
                                                    y = SC_demand_filled[SC_demand_filled["SKU"]==sc_sku].loc[:,"Units Sold"].reset_index(drop=True),
-                                                   param_grid = {"max_depth":[10],
-                                                                "n_estimators":[300],
-                                                                "learning_rate":[0.001, 0.05, 0.1],
-                                                                "boosting_type":["gbdt", "dart"]},
+                                                   param_grid = {"learning_rate":[0.1, 0.05, 0.01]},
                                                    cv = cv,
                                                    metric = 'mean_squared_error',
                                                    return_best = True,
@@ -358,37 +393,3 @@ if excel_sht:
                             key = "WTO_Download_Shipment"
                     )
 
-with intro_tab:
-
-    st.subheader("Welcome! This tool will help us plan Amazon SC Shipments into the future.")
-
-    st.markdown("""
-                How to use it:
-                - Click "Browse Files" above and upload Amazon Seller Central Report Rolling from teams.
-
-                - Select any of the product tabs above to get started:
-                    - At the top will be a 20-week demand forecast. 
-                    - To view forecasted inventory, input the **current inventory level** (Found in Safety Stock Report), and the **minimum quantity desired** for this product.
-                    - Examine the **Shipment Planning Chart** and use the *Add Shipment* feature to plan accordingly.
-                    - Once all your shipments are planned, click "Download Shipments CSV" and submit to Pavlo.
-                    - If you'd like to redo your shipment planning, click **Clear Session State** at the bottom of this page.
-                
-                Happy forecasting!
-                """)
-
-    st.divider()
-    st.markdown("""
-             Here's how it works: 
-             - We use LightGBM to forecast product-level demand.
-             - Using this demand forecast, we create an inventory forecast by 
-                cumulatively subtracting the starting inventory from the forecasted demand.
-             - We create and add planned shipments and update the rolling inventory forecast.
-             - We save the shipment data in a csv and download.""")
-    
-    st.divider()
-    st.write("RESTART SESSION HERE:")
-
-    clear_state = st.button(label = "Clear Session State")
-
-    if clear_state:
-        st.session_state.clear()
