@@ -336,7 +336,7 @@ if excel_sht:
                 edited_shpmt_df = st.data_editor(auto_shp_rec_df)
 
                 if st.button(label = "Approve Shipments",
-                             key = "WTO_SHIPMENT_APPROVAL"):
+                             key = "BTO_SHIPMENT_APPROVAL"):
                     st.session_state.bto_shipments = edited_shpmt_df
 
                 bto_auto_pred_df_long = bto_auto_pred_df.reset_index().melt(id_vars=["Week Ending"], 
