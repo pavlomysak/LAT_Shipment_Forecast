@@ -20,7 +20,7 @@ intro_tab, bto_tab, wto_tab = st.tabs(["Instructions", "BTO", "WTO"])
 
 with intro_tab:
 
-    st.subheader("Welcome! This tool will help us plan Amazon SC Shipments into the future.")
+    st.subheader("Welcome! This tool will help us plan Amazon SC Shipments.")
 
     st.markdown("""
                 How to use it:
@@ -28,9 +28,14 @@ with intro_tab:
 
                 - Select any of the product tabs above to get started:
                     - At the top will be a 20-week demand forecast. 
-                    - To view forecasted inventory, input the **current inventory level** (Found in Safety Stock Report), and the **minimum quantity desired** for this product.
-                    - Examine the **Shipment Planning Chart** and use the *Add Shipment* feature to plan accordingly.
-                    - Once all your shipments are planned, click "Download Shipments CSV" and submit to Pavlo.
+                    - To view forecasted inventory, input the **current inventory level** (Found in Safety Stock Report).
+                    - To use the shipment planning tool, you have two options: **Manual Shipment** or **Auto-Shipment**
+                    - To use the **Manual Shipment Tool:**
+                        - Examine the **Shipment Planning Chart** and use the *Add Shipment* feature to plan accordingly.
+                    - To use the **Auto Shipment Tool:**
+                        - Input desired Weeks of Cover, examine recommended shipment dataframe and forecasted inventory chart.
+                        - When happy with results, click "Approve Shipments" to save them to memory.
+                    - Once all your shipments are planned and saved, click "Download Shipments CSV" and submit to Pavlo.
                     - If you'd like to redo your shipment planning, click **Clear Session State** at the bottom of this page.
                 
                 Happy forecasting!
@@ -42,8 +47,9 @@ with intro_tab:
              - We use LightGBM to forecast product-level demand.
              - Using this demand forecast, we create an inventory forecast by 
                 cumulatively subtracting the starting inventory from the forecasted demand.
+             - we use an OLS model to estimate total order processing time and add it to any shipment.
              - We create and add planned shipments and update the rolling inventory forecast.
-             - We save the shipment data in a csv and download.""")
+             - In the auto-shipment feature, we use a modified EOQ model to determine the optimal quantity per shipment.""")
     
     st.divider()
     st.write("RESTART SESSION HERE:")
