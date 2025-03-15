@@ -359,11 +359,12 @@ if excel_sht:
                 final_auto_chart = auto_chart.properties(width=900, height=400).interactive()
                 st.altair_chart(final_auto_chart, use_container_width=False)
 
+            return st.session_state.bto_shipments
 ################################
             # END TABS INTO AUTO-RECS
 
         
-        shipment_planning_bto(predicted_df = bto_pred_df)
+        st.session_state.bto_shipments = shipment_planning_bto(predicted_df = bto_pred_df)
 
         #####################################
         # END SHIPMENT PLANNING
