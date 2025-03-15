@@ -359,25 +359,23 @@ if excel_sht:
                 final_auto_chart = auto_chart.properties(width=900, height=400).interactive()
                 st.altair_chart(final_auto_chart, use_container_width=False)
 
-            return st.session_state.bto_shipments
 ################################
             # END TABS INTO AUTO-RECS
 
         
-        st.session_state.bto_shipments = shipment_planning_bto(predicted_df = bto_pred_df)
+        shipment_planning_bto(predicted_df = bto_pred_df)
 
         #####################################
         # END SHIPMENT PLANNING
 
         # DOWNLOADING DATA
-        if not st.session_state.bto_shipments.empty:
-            final_shipment_df = pd.DataFrame(st.session_state.bto_shipments)
-            final_shipment_df["sku"] = sc_sku
-            final_shipment_df["Creation Date"] = final_shipment_df["Creation Date"].dt.strftime('%Y-%m-%d')
+        final_shipment_df = pd.DataFrame(st.session_state.bto_shipments)
+        final_shipment_df["sku"] = sc_sku
+        final_shipment_df["Creation Date"] = final_shipment_df["Creation Date"].dt.strftime('%Y-%m-%d')
 
             # Provide shipment download button
-            csv = final_shipment_df.to_csv(index=False)
-            st.download_button(
+        csv = final_shipment_df.to_csv(index=False)
+        st.download_button(
                     label="Download Shipments CSV, submit to pavlo@latourangelle.com",
                     data=csv,
                     file_name="shipments.csv",
