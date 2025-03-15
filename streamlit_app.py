@@ -529,13 +529,12 @@ if excel_sht:
         # END SHIPMENT PLANNING
 
         # DOWNLOADING DATA
-        if not st.session_state.wto_shipments.empty:
-            final_shipment_df = pd.DataFrame(st.session_state.wto_shipments)
-            final_shipment_df["sku"] = sc_sku
+        final_shipment_df = pd.DataFrame(st.session_state.wto_shipments)
+        final_shipment_df["sku"] = sc_sku
 
             # Provide shipment download button
-            csv = final_shipment_df.to_csv(index=False)
-            st.download_button(
+        csv = final_shipment_df.to_csv(index=False)
+        st.download_button(
                     label="Download Shipments CSV, submit to pavlo@latourangelle.com",
                     data=csv,
                     file_name="shipments.csv",
