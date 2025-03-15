@@ -49,7 +49,7 @@ with intro_tab:
                 cumulatively subtracting the starting inventory from the forecasted demand.
              - we use an OLS model to estimate total order processing time and add it to any shipment.
              - We create and add planned shipments and update the rolling inventory forecast.
-             - In the auto-shipment feature, we use a modified EOQ model to determine the optimal quantity per shipment.""")
+             - In the auto-shipment feature, we use an EOQ model to determine the optimal quantity per shipment.""")
     
     st.divider()
     st.write("RESTART SESSION HERE:")
@@ -160,7 +160,7 @@ if excel_sht:
         elif qtr == 4:
             strg_rt = 2.4
     
-        EOQ = np.sqrt(5*demand/(0.1*strg_rt))
+        EOQ = np.sqrt(90*demand/(0.1*strg_rt))
     
         return max(min_qty, np.round(EOQ))
     
