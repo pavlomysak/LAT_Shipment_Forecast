@@ -165,12 +165,13 @@ if excel_sht:
         return max(min_qty, np.round(EOQ))
     
     # Defining shipment auto-recommendation
-    def shipment_reco(predicted_demand_df, initial_inventory, weeks_of_cover=12):
+    def shipment_reco(predicted_demand_df, initial_inventory, weeks_of_cover=12, case_qty):
     
         recommended_shipments = []
         pred_df = predicted_demand_df.copy()  # Work on a copy to avoid modifying the original DataFrame
         pred_df["Forecasted Inventory"] = 0  # Reset inventory for recalculating
         current_inventory = initial_inventory
+        case_qty = case_qty
         
         for i in range(len(pred_df)):
         
@@ -201,7 +202,7 @@ if excel_sht:
                     shp_avail_dt = creation_date + pd.Timedelta(weeks = np.round(OLS_prcssng_tm(quantity=optim_qty, creation_date=creation_date) / 7))
         
                 # Append shipment recommendation
-                recommended_shipments.append({"Create Shipment": creation_date, "Units": optim_qty, "Cases": np.round(optim_qty/20), "Availability Date":shp_avail_dt})
+                recommended_shipments.append({"Create Shipment": creation_date, "Units": optim_qty, "Cases": np.round(optim_qty/case_qty), "Availability Date":shp_avail_dt})
         
                 if shp_avail_dt >= pred_df.index[0] and shp_avail_dt in pred_df.index:
                     future_index = pred_df.index.get_loc(shp_avail_dt)
@@ -243,7 +244,7 @@ if excel_sht:
         
         st.header("BTO 20-Week Forecast")
         st.line_chart(
-            SC_demand_filled[SC_demand_filled["SKU"] == sc_sku].merge(bto_pred_df, left_index=True, right_index=True, how="outer")[["Units Sold", "Forecasted Units Sold"]]
+            SC_demand_filled[SC_demand_filled["SKU"] == sc_sku].merge(bto_pred_df[:20], left_index=True, right_index=True, how="outer")[["Units Sold", "Forecasted Units Sold"]]
         )
 
         #####################################
@@ -337,7 +338,7 @@ if excel_sht:
                                               max_value = 15,
                                               key = "bto_wks_cvr")
 
-                auto_shp_rec_df, bto_auto_pred_df = shipment_reco(predicted_demand_df = bto_pred_df, initial_inventory = bto_curr_inv, weeks_of_cover=weeks_cover)
+                auto_shp_rec_df, bto_auto_pred_df = shipment_reco(predicted_demand_df = bto_pred_df, initial_inventory = bto_curr_inv, weeks_of_cover=weeks_cover, case_qty=20)
                 
                 edited_shpmt_df = st.data_editor(auto_shp_rec_df)
 
@@ -404,7 +405,7 @@ if excel_sht:
         
         st.header("WTO 20-Week Forecast")
         st.line_chart(
-            SC_demand_filled[SC_demand_filled["SKU"] == sc_sku].merge(wto_pred_df, left_index=True, right_index=True, how="outer")[["Units Sold", "Forecasted Units Sold"]]
+            SC_demand_filled[SC_demand_filled["SKU"] == sc_sku].merge(wto_pred_df[:20], left_index=True, right_index=True, how="outer")[["Units Sold", "Forecasted Units Sold"]]
         )
 
         #####################################
@@ -498,7 +499,7 @@ if excel_sht:
                                               max_value = 15,
                                               key = "wto_wks_cvr")
 
-                auto_shp_rec_df, wto_auto_pred_df = shipment_reco(predicted_demand_df = wto_pred_df, initial_inventory = wto_curr_inv, weeks_of_cover=weeks_cover)
+                auto_shp_rec_df, wto_auto_pred_df = shipment_reco(predicted_demand_df = wto_pred_df, initial_inventory = wto_curr_inv, weeks_of_cover=weeks_cover, case_qty=20)
                 
                 edited_shpmt_df = st.data_editor(auto_shp_rec_df)
 
