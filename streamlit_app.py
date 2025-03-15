@@ -99,7 +99,7 @@ if excel_sht:
     
         sc_sku = sku
         last_date = data.index.max()
-        horizon = 20
+        horizon = 30
         y_data = data[data["SKU"]==sc_sku].loc[:,"Units Sold"]
         cv = cross_validation
     
@@ -201,7 +201,7 @@ if excel_sht:
                     shp_avail_dt = creation_date + pd.Timedelta(weeks = np.round(OLS_prcssng_tm(quantity=optim_qty, creation_date=creation_date) / 7))
         
                 # Append shipment recommendation
-                recommended_shipments.append({"Create Shipment": creation_date, "Quantity": optim_qty, "Availability Date":shp_avail_dt})
+                recommended_shipments.append({"Create Shipment": creation_date, "Units": optim_qty, "Cases": np.round(optim_qty/20), "Availability Date":shp_avail_dt})
         
                 if shp_avail_dt >= pred_df.index[0] and shp_avail_dt in pred_df.index:
                     future_index = pred_df.index.get_loc(shp_avail_dt)
