@@ -99,7 +99,7 @@ if excel_sht:
     
         sc_sku = sku
         last_date = data.index.max()
-        horizon = 30
+        horizon = 35
         y_data = data[data["SKU"]==sc_sku].loc[:,"Units Sold"]
         cv = cross_validation
     
@@ -160,7 +160,7 @@ if excel_sht:
         elif qtr == 4:
             strg_rt = 2.4
     
-        EOQ = np.sqrt(90*demand/(0.1*strg_rt))
+        EOQ = np.sqrt(80*demand/(0.1*strg_rt))
     
         return max(min_qty, np.round(EOQ))
     
@@ -190,7 +190,7 @@ if excel_sht:
                 shp_avail_dt = zero_date - pd.Timedelta(weeks=weeks_of_cover)  # Adjust for Desired Weeks of Cover
         
                 # Find optimal shipment quantity
-                optim_qty = EOQ_func(date=zero_date, demand=pred_df["Forecasted Units Sold"].sum(), min_qty=4*6)
+                optim_qty = EOQ_func(date=zero_date, demand=pred_df["Forecasted Units Sold"][:20].sum(), min_qty=4*6)
         
                 # Estimate processing lead time
                 prcss_wks = np.round(OLS_prcssng_tm_bckwrd(quantity=optim_qty, close_date=shp_avail_dt) / 7)
