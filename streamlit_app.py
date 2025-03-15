@@ -371,7 +371,6 @@ if excel_sht:
         # DOWNLOADING DATA
         final_shipment_df = pd.DataFrame(st.session_state.bto_shipments)
         final_shipment_df["sku"] = sc_sku
-        final_shipment_df["Creation Date"] = final_shipment_df["Creation Date"].dt.strftime('%Y-%m-%d')
 
             # Provide shipment download button
         csv = final_shipment_df.to_csv(index=False)
@@ -533,7 +532,6 @@ if excel_sht:
         if not st.session_state.wto_shipments.empty:
             final_shipment_df = pd.DataFrame(st.session_state.wto_shipments)
             final_shipment_df["sku"] = sc_sku
-            final_shipment_df["Creation Date"] = final_shipment_df["Creation Date"].dt.strftime('%Y-%m-%d')
 
             # Provide shipment download button
             csv = final_shipment_df.to_csv(index=False)
