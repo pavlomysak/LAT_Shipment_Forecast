@@ -165,7 +165,7 @@ if excel_sht:
         return max(min_qty, np.round(EOQ))
     
     # Defining shipment auto-recommendation
-    def shipment_reco(predicted_demand_df, initial_inventory, weeks_of_cover=12, case_qty):
+    def shipment_reco(predicted_demand_df, initial_inventory, case_qty, weeks_of_cover=12):
     
         recommended_shipments = []
         pred_df = predicted_demand_df.copy()  # Work on a copy to avoid modifying the original DataFrame
