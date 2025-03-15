@@ -202,7 +202,7 @@ if excel_sht:
                     shp_avail_dt = creation_date + pd.Timedelta(weeks = np.round(OLS_prcssng_tm(quantity=optim_qty, creation_date=creation_date) / 7))
         
                 # Append shipment recommendation
-                recommended_shipments.append({"Create Shipment": creation_date, "Units": optim_qty, "Cases": np.round(optim_qty/case_qty), "Availability Date":shp_avail_dt})
+                recommended_shipments.append({"Creation Date": creation_date, "Units": optim_qty, "Cases": np.round(optim_qty/case_qty), "Availability Date":shp_avail_dt})
         
                 if shp_avail_dt >= pred_df.index[0] and shp_avail_dt in pred_df.index:
                     future_index = pred_df.index.get_loc(shp_avail_dt)
