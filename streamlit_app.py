@@ -202,7 +202,7 @@ if excel_sht:
                 
                         # Send shipment out next monday if recommended creation date is before today
                 if creation_date < pd.Timestamp.today():
-                    creation_date = pd.to_datetime(np.busday_offset(np.datetime64('today', 'D') , offsets = 0, roll="forward", weekmask='Mon'))
+                    creation_date = pd.to_datetime(np.busday_offset(np.datetime64('today', 'D') , offsets = 0, roll="forward", weekmask='Sat'))
                     prcss_wks =  round(OLS_prcssng_tm(quantity=optim_qty, creation_date=creation_date) / 7)
                     shp_avail_dt = creation_date + pd.Timedelta(weeks = prcss_wks)
         
