@@ -357,7 +357,7 @@ if excel_sht:
 
                 auto_shp_rec_df, auto_pred_df = shipment_reco(predicted_demand_df = pred_df, initial_inventory = curr_inv, weeks_of_cover=weeks_cover, case_qty=20, pallet_qty=75)
                 
-                edited_shpmt_df = st.data_editor(auto_shp_rec_df)
+                edited_shpmt_df = st.data_editor(auto_shp_rec_df, key = f"DATA_EDITOR{sc_sku}")
 
                 auto_pred_df_long = auto_pred_df.reset_index().melt(id_vars=["Week Ending"], 
                                                                       value_vars=["Forecasted Units Sold", "Forecasted Inventory"], 
