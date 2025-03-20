@@ -13,30 +13,33 @@ from sklearn.preprocessing import RobustScaler
 
 st.title("Seller Central Shipment Forecast")
 
+if "shipments" not in st.session_state:
+        st.session_state.shipments = pd.DataFrame()
+
 excel_sht = st.file_uploader(label = "Upload SC Rolling Sales Report",
                              type = ".xlsx")
 
-intro_tab, bto_tab, wto_tab, evo750_tab = st.tabs(["Instructions", "BTO", "WTO", "EVO750"])
+intro_tab, bto_tab, wto_tab, evo750_tab = st.tabs(["Instructions", "BTO220", "WTO220", "EVO750"])
 
 with intro_tab:
 
-    st.subheader("Welcome! This tool will help us plan Amazon SC Shipments.")
+    st.subheader("Welcome!")
 
     st.markdown("""
-                How to use it:
-                - Click "Browse Files" above and upload Amazon Seller Central Report Rolling from teams.
+                How to use this tool:
+                - Click "Browse Files" above and upload **Amazon Seller Central** Report Rolling from teams.
 
                 - Select any of the product tabs above to get started:
                     - At the top will be a 20-week demand forecast. 
-                    - To view forecasted inventory, input the **current inventory level** (Found in Safety Stock Report).
+                    - To view forecasted inventory, input the **current inventory level + Inbound Shipments** (Found in Safety Stock Report).
                     - To use the shipment planning tool, you have two options: **Manual Shipment** or **Auto-Shipment**
                     - To use the **Manual Shipment Tool:**
                         - Examine the **Shipment Planning Chart** and use the *Add Shipment* feature to plan accordingly.
                     - To use the **Auto Shipment Tool:**
                         - Input desired Weeks of Cover, examine recommended shipment dataframe and forecasted inventory chart.
                         - When happy with results, click "Approve Shipments" to save them to memory.
-                    - Once all your shipments are planned and saved, click "Download Shipments CSV" and submit to Pavlo.
-                    - If you'd like to redo your shipment planning, click **Clear Session State** at the bottom of this page.
+                    - Once all your shipments are planned and saved, click "Display & Download Shipments" at the bottom of this page.
+                    - If you'd like to redo your shipment planning, click **Clear All Shipment Data** at the bottom of this page.
                 
                 Happy forecasting!
                 """)
@@ -161,30 +164,30 @@ if excel_sht:
     
     # Defining shipment auto-recommendation
     def shipment_reco(predicted_demand_df, initial_inventory, weeks_of_cover, case_qty, pallet_qty):
-    
+
         recommended_shipments = []
-        pred_df = predicted_demand_df.copy() 
-        pred_df["Forecasted Inventory"] = 0 
+        pred_df = predicted_demand_df.copy()  # Work on a copy to avoid modifying the original DataFrame
+        pred_df["Forecasted Inventory"] = 0  # Reset inventory for recalculating
         current_inventory = initial_inventory
         
         expl_str = ""
         for i in range(len(pred_df)):
                 
-                    # If we've already created a shipment (no need to calculate forecasted inventory)
+            # If we've already created a shipment (no need to calculate forecasted inventory)
             if recommended_shipments:
                 current_inventory = pred_df.iloc[i]["Forecasted Inventory"]
-                    # If no shipments have been made and we need to initialize forecasted inventory
+            # If no shipments have been made and we need to initialize forecasted inventory
             else:
                 current_inventory -= pred_df.iloc[i]["Forecasted Units Sold"]
                 current_inventory = max(0, current_inventory)
                 pred_df.loc[pred_df.index[i], "Forecasted Inventory"] = current_inventory
                 
-            if (pred_df.loc[pred_df.index[i-1], "Forecasted Inventory"] == 0) &( pred_df.loc[pred_df.index[i], "Forecasted Inventory"] == 0):
+            if (pred_df.loc[pred_df.index[i-1], "Forecasted Inventory"] == 0) & ( pred_df.loc[pred_df.index[i], "Forecasted Inventory"] == 0):
         
                 if not expl_str =="":
                     expl_str += f"""
--- {pred_df.index[i]}- OOS. Waiting for last shipment to arrive before continuing... 
-"""
+        -- {pred_df.index[i]}- OOS. Waiting for last shipment to arrive before continuing... 
+    """
                 continue
             
             if current_inventory == 0:
@@ -207,19 +210,19 @@ if excel_sht:
                     shp_avail_dt = creation_date + pd.Timedelta(weeks = prcss_wks)
         
                     expl_str += f"""
-- We are projected to run out of inventory on {zero_date}. 
-  {weeks_of_cover} weeks of cover not possible.
-  Earliest possible shipment available date: {shp_avail_dt}.
-  Add {prcss_wks} weeks of estimated processing time.
-  Shipment creation date: {creation_date}.
-"""
+        - We are projected to run out of inventory on {zero_date}. 
+        {weeks_of_cover} weeks of cover not possible.
+        Earliest possible shipment available date: {shp_avail_dt}.
+        Add {prcss_wks} weeks of estimated processing time.
+        Shipment creation date: {creation_date}.
+        """
                 else:
                     expl_str += f"""
-- We are projected to run out of inventory on {zero_date}. 
-  Subtract {weeks_of_cover} weeks of cover: {shp_avail_dt}.
-  Add {prcss_wks} weeks of estimated processing time.
-  Shipment creation date: {creation_date}.
-"""
+        - We are projected to run out of inventory on {zero_date}. 
+        Subtract {weeks_of_cover} weeks of cover: {shp_avail_dt}.
+        Add {prcss_wks} weeks of estimated processing time.
+        Shipment creation date: {creation_date}.
+        """
                     
                 
                         # Append shipment recommendation
@@ -228,11 +231,11 @@ if excel_sht:
                 if shp_avail_dt in pred_df.index:
                     future_index = pred_df.index.get_loc(shp_avail_dt)
                             
-                            # Add shipment quantity to inventory
+                    # Add shipment quantity to inventory
                     current_inventory_shp = optim_qty + pred_df.loc[pred_df.index[future_index], "Forecasted Inventory"]
                     pred_df.loc[pred_df.index[future_index], "Forecasted Inventory"] = current_inventory_shp
                 
-                            # Recalculate running inventory
+                    # Recalculate running inventory
                     for j in range(future_index+1, len(pred_df)):
                         current_inventory_shp -= pred_df.iloc[j]["Forecasted Units Sold"]
                         current_inventory_shp = max(0, current_inventory_shp)
@@ -240,13 +243,15 @@ if excel_sht:
                 
                 if shp_avail_dt not in pred_df.index:
                     break
-    
-        with st.expander(label = "Shipment Logic"):
+
+        with st.expander("Shipment Logic"):
             st.write(expl_str)
+        
         return pd.DataFrame(recommended_shipments), pred_df
 
 
-    def product_tab(sku, launch_date="1999-01-01"):
+
+    def product_tab(sku, launch_date="1999-01-01", case_qty, pallet_qty):
 
         sc_sku = sku
         
@@ -279,7 +284,7 @@ if excel_sht:
 ################################
             # SPLIT TABS INTO AUTO-RECS
 
-            shipment_memory = pd.DataFrame()
+            #shipment_memory = pd.DataFrame()
 
             manual_shipment_tab, auto_shipment_tab = st.tabs(["Manual Shipments", "Auto-Shipment"])
 
@@ -346,8 +351,9 @@ if excel_sht:
                 if st.button(label = "Approve Shipments",
                              key = f"MANUAL_SHIPMENT_APPROVAL{sc_sku}"):
                     shipment_memory["SKU"] = sc_sku
+                    shipment_memory["Mode"] = "Manual-Shipment"
+                    st.session_state.shipments = pd.concat([st.session_state.shipments, shipment_memory])
                     st.success(f"{sc_sku} Shipments saved!")
-                    return shipment_memory
 
             with auto_shipment_tab:
                 weeks_cover = st.number_input(label = "Weeks of Cover",
@@ -355,9 +361,9 @@ if excel_sht:
                                               max_value = 15,
                                               key = f"wks_cvr{sc_sku}")
 
-                auto_shp_rec_df, auto_pred_df = shipment_reco(predicted_demand_df = pred_df, initial_inventory = curr_inv, weeks_of_cover=weeks_cover, case_qty=20, pallet_qty=75)
+                auto_shp_rec_df, auto_pred_df = shipment_reco(predicted_demand_df = pred_df, initial_inventory = curr_inv, weeks_of_cover=weeks_cover, case_qty=case_qty, pallet_qty=pallet_qty)
                 
-                edited_shpmt_df = st.data_editor(auto_shp_rec_df, key = f"DATA_EDITOR{sc_sku}")
+                edited_shpmt_df = st.data_editor(auto_shp_rec_df)
 
                 auto_pred_df_long = auto_pred_df.reset_index().melt(id_vars=["Week Ending"], 
                                                                       value_vars=["Forecasted Units Sold", "Forecasted Inventory"], 
@@ -376,12 +382,12 @@ if excel_sht:
                              key = f"AUTO_SHIPMENT_APPROVAL{sc_sku}"):
                     shipment_memory = edited_shpmt_df
                     shipment_memory["SKU"] = sc_sku
+                    shipment_memory["Mode"] = "Auto-Shipment"
+                    st.session_state.shipments = pd.concat([st.session_state.shipments, shipment_memory]) ########################################
                     st.success(f"{sc_sku} Shipments saved!")
-                    return shipment_memory
 
-        shipment_memory = shipment_planning_func(predicted_df = pred_df)
+        shipment_planning_func(predicted_df = pred_df)
 
-        return shipment_memory
     
 
     ###############################
@@ -390,37 +396,39 @@ if excel_sht:
 
     with bto_tab:
 
-        st.session_state.bto_shipments = product_tab(sku = "40-05-BTO-A220-CS")
+        product_tab(sku = "40-05-BTO-A220-CS", case_qty=20, pallet_qty=75)
 
     with wto_tab:
 
-        st.session_state.wto_shipments = product_tab(sku = "40-05-WTO-A220-CS")
+        product_tab(sku = "40-05-WTO-A220-CS", case_qty=20, pallet_qty=75)
 
     with evo750_tab:
 
-        st.session_state.evo750_shipments = product_tab(sku = "40-05-EVO-0750-CS", launch_date = "2024-01-01")
+        product_tab(sku = "40-05-EVO-0750-CS", launch_date = "2024-01-01", case_qty=6, pallet_qty = 132)
 
 
 
 with intro_tab:
     
-    st.write("Save Shipments Here:")
-
-    @st.fragment 
-    def download_data():
-        if st.button("Check for Saved Shipments"):
-            #shipment_dfs = [df for df in [st.session_state.bto_shipments, st.session_state.wto_shipments, st.session_state.evo750_shipments] if 'df' in locals() and df is not None]
-
-            #if shipment_dfs:  # Only proceed if there's at least one valid DataFrame
-            final_shp_csv = pd.concat([st.session_state.bto_shipments, st.session_state.wto_shipments]).to_csv(index=False)
+    st.title("Shipment Manager")
+    if st.button("Display & Download Shipments"):
+        @st.fragment
+        def download_disp_data():
+            st.table(st.session_state.shipments)
 
             st.download_button(
-                    label="Download Shipments CSV, submit to pavlo@latourangelle.com",
-                    data=final_shp_csv,
-                    file_name="shipments.csv",
-                    mime="text/csv",
-                    key="Download_Shipments"
-                )
-            #else:
-                #st.warning("No shipment data available to save.")
-    download_data()
+                label = "Download Shipments Data",
+                data = st.session_state.shipments.to_csv(index=False),
+                file_name = "shipments.csv",
+                mime="text/csv",
+                key="Download_Shipments"
+            )
+        download_disp_data()
+
+    st.divider()
+
+    if st.button("Clear All Shipment Data"):
+        @st.fragment
+        def clear_mem():
+            st.session_state.shipments = pd.DataFrame()
+        clear_mem()
