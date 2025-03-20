@@ -251,7 +251,7 @@ if excel_sht:
 
 
 
-    def product_tab(sku, launch_date="1999-01-01", case_qty, pallet_qty):
+    def product_tab(sku, case_qty, pallet_qty, launch_date="1999-01-01"):
 
         sc_sku = sku
         
