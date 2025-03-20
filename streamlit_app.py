@@ -411,24 +411,23 @@ if excel_sht:
 with intro_tab:
     
     st.title("Shipment Manager")
-    if st.button("Display & Download Shipments"):
-        @st.fragment
-        def download_disp_data():
+    @st.fragment
+    def download_disp_data():
+        if st.button("Display & Download Shipments"):
             st.table(st.session_state.shipments)
-
             st.download_button(
                 label = "Download Shipments Data",
                 data = st.session_state.shipments.to_csv(index=False),
                 file_name = "shipments.csv",
                 mime="text/csv",
                 key="Download_Shipments"
-            )
-        download_disp_data()
+                )
+    download_disp_data()
 
     st.divider()
 
-    if st.button("Clear All Shipment Data"):
-        @st.fragment
-        def clear_mem():
+    @st.fragment
+    def clear_mem():
+        if st.button("Clear All Shipment Data"):
             st.session_state.shipments = pd.DataFrame()
-        clear_mem()
+    clear_mem()
