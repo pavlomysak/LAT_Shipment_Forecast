@@ -355,7 +355,7 @@ if excel_sht:
                                               max_value = 15,
                                               key = f"wks_cvr{sc_sku}")
 
-                auto_shp_rec_df, auto_pred_df = shipment_reco(predicted_demand_df = pred_df, initial_inventory = curr_inv, weeks_of_cover=weeks_cover, case_qty=20)
+                auto_shp_rec_df, auto_pred_df = shipment_reco(predicted_demand_df = pred_df, initial_inventory = curr_inv, weeks_of_cover=weeks_cover, case_qty=20, pallet_qty=75)
                 
                 edited_shpmt_df = st.data_editor(auto_shp_rec_df)
 
