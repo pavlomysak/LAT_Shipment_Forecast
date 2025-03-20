@@ -97,7 +97,7 @@ if excel_sht:
     
         sc_sku = sku
         last_date = data.index.max()
-        horizon = 35
+        horizon = 42
         y_data = data[(data["SKU"]==sc_sku)].loc[:,"Units Sold"]
         cv = cross_validation
     
