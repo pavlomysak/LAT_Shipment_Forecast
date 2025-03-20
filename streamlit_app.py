@@ -160,89 +160,89 @@ if excel_sht:
         return max(min_qty, np.round(EOQ))
     
     # Defining shipment auto-recommendation
-    def shipment_reco(predicted_demand_df, initial_inventory, case_qty, pallet_qty, weeks_of_cover=12):
+    def shipment_reco(predicted_demand_df, initial_inventory, weeks_of_cover, case_qty, pallet_qty):
     
         recommended_shipments = []
-        pred_df = predicted_demand_df.copy()  # Work on a copy to avoid modifying the original DataFrame
-        pred_df["Forecasted Inventory"] = 0  # Reset inventory for recalculating
+        pred_df = predicted_demand_df.copy() 
+        pred_df["Forecasted Inventory"] = 0 
         current_inventory = initial_inventory
-        expl_str = ""
         
+        expl_str = ""
         for i in range(len(pred_df)):
-          
-          if recommended_shipments:
-            current_inventory = pred_df.iloc[i]["Forecasted Inventory"]
-                # If no shipments have been made and we need to initialize forecasted inventory
-          else:
-              current_inventory -= pred_df.iloc[i]["Forecasted Units Sold"]
-              current_inventory = max(0, current_inventory)
-              pred_df.loc[pred_df.index[i], "Forecasted Inventory"] = current_inventory
-            
-          if pred_df.loc[pred_df.index[i-1], "Forecasted Inventory"] == 0:
-    
-              if not expl_str =="":
-                expl_str += f"""
+                
+                    # If we've already created a shipment (no need to calculate forecasted inventory)
+            if recommended_shipments:
+                current_inventory = pred_df.iloc[i]["Forecasted Inventory"]
+                    # If no shipments have been made and we need to initialize forecasted inventory
+            else:
+                current_inventory -= pred_df.iloc[i]["Forecasted Units Sold"]
+                current_inventory = max(0, current_inventory)
+                pred_df.loc[pred_df.index[i], "Forecasted Inventory"] = current_inventory
+                
+            if (pred_df.loc[pred_df.index[i-1], "Forecasted Inventory"] == 0) &( pred_df.loc[pred_df.index[i], "Forecasted Inventory"] == 0):
+        
+                if not expl_str =="":
+                    expl_str += f"""
 -- {pred_df.index[i]}- OOS. Waiting for last shipment to arrive before continuing... 
 """
-              continue
+                continue
+            
+            if current_inventory == 0:
+                zero_date = pred_df.index[i]  # Save date when inventory = 0
+                shp_avail_dt = zero_date - pd.Timedelta(weeks=weeks_of_cover)  # Adjust for Desired Weeks of Cover
+                
+                        # Find optimal shipment quantity - Demand is 1 month sales with 50% Growth Factor
+                optim_qty = EOQ_func(date=zero_date, demand=pred_df["Forecasted Units Sold"][:4].sum()*12*1.5, min_qty=4*6)
+                optim_qty = round(optim_qty/case_qty/pallet_qty)*pallet_qty*case_qty # OPTIMIZE FOR PALLET
+                #optim_qty = round(optim_qty/case_qty)*case_qty # OPTIMIZE FOR CASE
+                
+                        # Estimate processing lead time
+                prcss_wks = round(OLS_prcssng_tm_bckwrd(quantity=optim_qty, close_date=shp_avail_dt) / 7)
+                creation_date = shp_avail_dt - pd.Timedelta(weeks=prcss_wks)
+                
+                        # Send shipment out next monday if recommended creation date is before today
+                if creation_date < pd.Timestamp.today():
+                    creation_date = pd.to_datetime(np.busday_offset(np.datetime64('today', 'D') , offsets = 0, roll="forward", weekmask='Mon'))
+                    prcss_wks =  round(OLS_prcssng_tm(quantity=optim_qty, creation_date=creation_date) / 7)
+                    shp_avail_dt = creation_date + pd.Timedelta(weeks = prcss_wks)
         
-          if current_inventory == 0:
-              zero_date = pred_df.index[i]  # Save date when inventory = 0
-              shp_avail_dt = zero_date - pd.Timedelta(weeks=weeks_of_cover)  # Adjust for Desired Weeks of Cover
-              
-                      # Find optimal shipment quantity - Demand is 1 month sales with 50% Growth Factor
-              optim_qty = EOQ_func(date=zero_date, demand=pred_df["Forecasted Units Sold"][:4].sum()*12*1.5, min_qty=4*6)
-              optim_qty = round(optim_qty/case_qty/pallet_qty)*pallet_qty*case_qty # OPTIMIZE FOR PALLET
-              #optim_qty = round(optim_qty/case_qty)*case_qty # OPTIMIZE FOR CASE
-              
-                      # Estimate processing lead time
-              prcss_wks = round(OLS_prcssng_tm_bckwrd(quantity=optim_qty, close_date=shp_avail_dt) / 7)
-              creation_date = shp_avail_dt - pd.Timedelta(weeks=prcss_wks)
-              
-                      # Send shipment out next monday if recommended creation date is before today
-              if creation_date < pd.Timestamp.today():
-                  creation_date = pd.to_datetime(np.busday_offset(np.datetime64('today', 'D') , offsets = 0, roll="forward", weekmask='Mon'))
-                  prcss_wks =  round(OLS_prcssng_tm(quantity=optim_qty, creation_date=creation_date) / 7)
-                  shp_avail_dt = creation_date + pd.Timedelta(weeks = prcss_wks)
-      
-                  expl_str += f"""
+                    expl_str += f"""
 - We are projected to run out of inventory on {zero_date}. 
   {weeks_of_cover} weeks of cover not possible.
   Earliest possible shipment available date: {shp_avail_dt}.
   Add {prcss_wks} weeks of estimated processing time.
   Shipment creation date: {creation_date}.
 """
-              else:
-                expl_str += f"""
+                else:
+                    expl_str += f"""
 - We are projected to run out of inventory on {zero_date}. 
   Subtract {weeks_of_cover} weeks of cover: {shp_avail_dt}.
   Add {prcss_wks} weeks of estimated processing time.
   Shipment creation date: {creation_date}.
 """
+                    
                 
-            
-                    # Append shipment recommendation
-              recommended_shipments.append({"Creation Date": creation_date, "Units": optim_qty, "Cases": round(optim_qty/case_qty), "Pallets": round(optim_qty/case_qty/pallet_qty,2), "Availability Date":shp_avail_dt})
-            
-              if shp_avail_dt in pred_df.index:
-                  future_index = pred_df.index.get_loc(shp_avail_dt)
-                          
-                          # Add shipment quantity to inventory
-                  current_inventory_shp = optim_qty + pred_df.loc[pred_df.index[future_index], "Forecasted Inventory"]
-                  pred_df.loc[pred_df.index[future_index], "Forecasted Inventory"] = current_inventory_shp
-              
-                          # Recalculate running inventory
-                  for j in range(future_index+1, len(pred_df)):
-                      current_inventory_shp -= pred_df.iloc[j]["Forecasted Units Sold"]
-                      current_inventory_shp = max(0, current_inventory_shp)
-                      pred_df.loc[pred_df.index[j], "Forecasted Inventory"] = current_inventory_shp
-              
-              if shp_avail_dt not in pred_df.index:
-                  break
-
-        with st.expander(label = "See Logic"):
+                        # Append shipment recommendation
+                recommended_shipments.append({"Creation Date": creation_date, "Units": optim_qty, "Cases": round(optim_qty/case_qty), "Pallets": round(optim_qty/case_qty/pallet_qty,2), "Availability Date":shp_avail_dt})
+                
+                if shp_avail_dt in pred_df.index:
+                    future_index = pred_df.index.get_loc(shp_avail_dt)
+                            
+                            # Add shipment quantity to inventory
+                    current_inventory_shp = optim_qty + pred_df.loc[pred_df.index[future_index], "Forecasted Inventory"]
+                    pred_df.loc[pred_df.index[future_index], "Forecasted Inventory"] = current_inventory_shp
+                
+                            # Recalculate running inventory
+                    for j in range(future_index+1, len(pred_df)):
+                        current_inventory_shp -= pred_df.iloc[j]["Forecasted Units Sold"]
+                        current_inventory_shp = max(0, current_inventory_shp)
+                        pred_df.loc[pred_df.index[j], "Forecasted Inventory"] = current_inventory_shp
+                
+                if shp_avail_dt not in pred_df.index:
+                    break
+    
+        with st.expander(label = "Shipment Logic"):
             st.write(expl_str)
-          
         return pd.DataFrame(recommended_shipments), pred_df
 
 
