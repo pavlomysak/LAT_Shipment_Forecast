@@ -196,9 +196,9 @@ if excel_sht:
                 
                         # Find optimal shipment quantity - Demand is 1 month sales with 50% Growth Factor
                 optim_qty = EOQ_func(date=zero_date, demand=pred_df["Forecasted Units Sold"][:4].sum()*12*1.5, min_qty=4*6)
-                if case_pallet_optim == "pallet":
+                if case_pallet_optim == "Pallet":
                         optim_qty = round(optim_qty/case_qty/pallet_qty)*pallet_qty*case_qty # OPTIMIZE FOR PALLET
-                if case_pallet_optim == "case":
+                if case_pallet_optim == "Case":
                         optim_qty = round(optim_qty/case_qty)*case_qty # OPTIMIZE FOR CASE
                 else:
                       optim_qty = round(optim_qty/case_qty)*case_qty # OPTIMIZE FOR CASE  
