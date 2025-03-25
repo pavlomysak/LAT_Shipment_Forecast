@@ -19,7 +19,11 @@ if "shipments" not in st.session_state:
 excel_sht = st.file_uploader(label = "Upload SC Rolling Sales Report",
                              type = ".xlsx")
 
-intro_tab, bto_tab, wto_tab, evo750_tab, hzl500_tab, walbib_tab, avobib_tab = st.tabs(["Instructions", "BTO220", "WTO220", "EVO750", "HZL500", "WALBIB", "AVOBIB"])
+intro_tab, bto_tab, wto_tab, evo750_tab, hzl500_tab, walbib_tab, avobib_tab, tsobib_tab, gsobib_tab, evobib_tab, peabib_tab = st.tabs(["Instructions", "BTO220", 
+                                                                                                                           "WTO220", "EVO750", 
+                                                                                                                           "HZL500", "WALBIB", 
+                                                                                                                           "AVOBIB", "TSOBIB",
+                                                                                                                           "GSOBIB", "EVOBIB", "PEABIB"])
 
 with intro_tab:
 
@@ -423,10 +427,22 @@ if excel_sht:
             product_tab(sku = "40-05-HZL-0500-CS", launch_date = "2024-01-01", case_qty=6, pallet_qty=196)
 
     with walbib_tab:
-            product_tab(sku = "40-05-WAL-50BIB-CS", launch_date = "2024-01-01", case_qty=3, pallet_qty=60)
+            product_tab(sku = "40-05-WAL-50BIB-CS", launch_date = "2023-02-01", case_qty=3, pallet_qty=60)
 
     with avobib_tab:
-            product_tab(sku = "40-05-AVO-50BIB-CS", launch_date = "2024-01-01", case_qty=3, pallet_qty=60)
+            product_tab(sku = "40-05-AVO-50BIB-CS", launch_date = "2023-06-01", case_qty=3, pallet_qty=60)
+
+    with tsobib_tab:
+            product_tab(sku = "40-05-TSO-50BIB-CS", launch_date = "2023-01-01", case_qty=3, pallet_qty=60)
+
+    with gsobib_tab:
+            product_tab(sku = "40-05-GSO-50BIB-CS", launch_date = "2023-01-01", case_qty=3, pallet_qty=60)
+
+    with evobib_tab:
+            product_tab(sku = "40-05-EVO-50BIB-CS", launch_date = "2023-01-01", case_qty=3, pallet_qty=60)
+
+    with peabib_tab:
+            product_tab(sku = "40-05-PEA-50BIB-CS", launch_date = "2023-01-01", case_qty=3, pallet_qty=60)
 
 with intro_tab:
     
