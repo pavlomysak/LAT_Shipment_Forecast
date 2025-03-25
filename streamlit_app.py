@@ -163,7 +163,7 @@ if excel_sht:
         return max(min_qty, np.round(EOQ))
     
     # Defining shipment auto-recommendation
-    def shipment_reco(predicted_demand_df, initial_inventory, weeks_of_cover, case_qty, pallet_qty):
+    def shipment_reco(predicted_demand_df, initial_inventory, weeks_of_cover, case_qty, pallet_qty, case_pallet_optim):
 
         recommended_shipments = []
         pred_df = predicted_demand_df.copy()  # Work on a copy to avoid modifying the original DataFrame
@@ -196,10 +196,14 @@ if excel_sht:
                 
                         # Find optimal shipment quantity - Demand is 1 month sales with 50% Growth Factor
                 optim_qty = EOQ_func(date=zero_date, demand=pred_df["Forecasted Units Sold"][:4].sum()*12*1.5, min_qty=4*6)
-                optim_qty = round(optim_qty/case_qty/pallet_qty)*pallet_qty*case_qty # OPTIMIZE FOR PALLET
-                #optim_qty = round(optim_qty/case_qty)*case_qty # OPTIMIZE FOR CASE
+                if case_pallet_optim == "pallet":
+                        optim_qty = round(optim_qty/case_qty/pallet_qty)*pallet_qty*case_qty # OPTIMIZE FOR PALLET
+                if case_pallet_optim == "case":
+                        optim_qty = round(optim_qty/case_qty)*case_qty # OPTIMIZE FOR CASE
+                else:
+                      optim_qty = round(optim_qty/case_qty)*case_qty # OPTIMIZE FOR CASE  
                 
-                        # Estimate processing lead time
+                # Estimate processing lead time
                 prcss_wks = round(OLS_prcssng_tm_bckwrd(quantity=optim_qty, close_date=shp_avail_dt) / 7)
                 creation_date = shp_avail_dt - pd.Timedelta(weeks=prcss_wks)
                 
@@ -360,8 +364,13 @@ if excel_sht:
                                               min_value = 0,
                                               max_value = 15,
                                               key = f"wks_cvr{sc_sku}")
+                    
+                case_pallet_toggle = st.segmented_control(label = "Optimization Level",
+                                                         options = ["Case", "Pallet"],
+                                                         default = "Case",
+                                                         key = f"Optim_Level{sc_sku}")
 
-                auto_shp_rec_df, auto_pred_df = shipment_reco(predicted_demand_df = pred_df, initial_inventory = curr_inv, weeks_of_cover=weeks_cover, case_qty=case_qty, pallet_qty=pallet_qty)
+                auto_shp_rec_df, auto_pred_df = shipment_reco(predicted_demand_df = pred_df, initial_inventory = curr_inv, weeks_of_cover=weeks_cover, case_qty=case_qty, pallet_qty=pallet_qty, case_pallet_optim = case_pallet_toggle)
                 
                 edited_shpmt_df = st.data_editor(auto_shp_rec_df)
 
