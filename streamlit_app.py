@@ -174,14 +174,12 @@ if excel_sht:
         if sku[11:14]=="500" or sku[11:14]=="512":
             volume = 0.031
         
-        if qtr == 1:
-            strg_rt = 0.84
-        elif qtr == 2 or qtr == 3:
-            strg_rt = 0.78
-        elif qtr == 4:
+        if qtr == 4: # If in Q4; $2.4
             strg_rt = 2.4
+        else: # If in Q1, Q2, Q3; $0.78
+            strg_rt = 0.78
 
-        EOQ = np.sqrt(80*demand/(volume*strg_rt*3))
+        EOQ = np.sqrt(90*demand*6*1.2/(volume*strg_rt*6))
     
         return max(min_qty, np.round(EOQ))
     
@@ -218,10 +216,10 @@ if excel_sht:
                 zero_date = pred_df.index[i]  # Save date when inventory = 0
                 shp_avail_dt = zero_date - pd.Timedelta(weeks=weeks_of_cover)  # Adjust for Desired Weeks of Cover
                 
-                        # Find optimal shipment quantity - Demand is 1 month sales with 50% Growth Factor
-                optim_qty = EOQ_func(date=zero_date, demand=pred_df["Forecasted Units Sold"][:4].sum()*12*1.5, sku = sc_sku, min_qty=4*6)
+                        # Find optimal shipment quantity
+                optim_qty = EOQ_func(date=zero_date, demand=pred_df["Forecasted Units Sold"][i:i+4].sum(), sku = sc_sku, min_qty=4*6)
                 if case_pallet_optim == "Pallet":
-                        optim_qty = round(optim_qty/case_qty/pallet_qty)*pallet_qty*case_qty # OPTIMIZE FOR PALLET
+                        max(1, round(optim_qty / case_qty / pallet_qty) * pallet_qty * case_qty) # OPTIMIZE FOR PALLET. IF ROUNDS TO 0, DEFAULTS TO 1.
                 if case_pallet_optim == "Case":
                         optim_qty = round(optim_qty/case_qty)*case_qty # OPTIMIZE FOR CASE
                 else:
