@@ -219,7 +219,7 @@ if excel_sht:
                         # Find optimal shipment quantity
                 optim_qty = EOQ_func(date=zero_date, demand=pred_df["Forecasted Units Sold"][i:i+4].sum(), sku = sc_sku, min_qty=4*6)
                 if case_pallet_optim == "Pallet":
-                        max(1, round(optim_qty / case_qty / pallet_qty) * pallet_qty * case_qty) # OPTIMIZE FOR PALLET. IF ROUNDS TO 0, DEFAULTS TO 1.
+                        optim_qty = max(1, round(optim_qty / case_qty / pallet_qty) * pallet_qty * case_qty) # OPTIMIZE FOR PALLET. IF ROUNDS TO 0, DEFAULTS TO 1.
                 if case_pallet_optim == "Case":
                         optim_qty = round(optim_qty/case_qty)*case_qty # OPTIMIZE FOR CASE
                 else:
