@@ -311,107 +311,36 @@ if excel_sht:
             # SPLIT TABS INTO AUTO-RECS
 
             #shipment_memory = pd.DataFrame()
-
-            manual_shipment_tab, auto_shipment_tab = st.tabs(["Manual Shipments", "Auto-Shipment"])
-
-            with manual_shipment_tab:
-                # Update Inventory and Rerun for Chart Update
-                if curr_inv:
-
-                    st.write("Add Shipments:")
-                    shp_dt = st.date_input(label="Date of Shipment", 
-                                           value = pd.to_datetime("today")+pd.Timedelta(days=1),
-                                            min_value=pd.to_datetime("today")+pd.Timedelta(days=1) , 
-                                            max_value=pred_df.index.max(), 
-                                            key=f"shipment_date_input{sc_sku}")
-            
-                    shp_qty = st.number_input(label="Number of Units", 
-                                                    min_value=0, 
-                                                    key=f"shipment_qty_input{sc_sku}")
-                    if shp_qty:
-                        estimated_prcss_tm =  OLS_prcssng_tm(quantity = shp_qty, creation_date = shp_dt)
-                        st.write(f"Estimated processing time: {estimated_prcss_tm} days.")
-    
-            
-                    # Initialize Empty Shipments DataFrame
-                    shipment_df = pd.DataFrame()
-            
-                    if st.button("Add Shipment", key = f"Add_Shipment{sc_sku}"):
-                        if shp_qty > 0:
-                            new_shipment = pd.DataFrame([{"Creation Date": pd.to_datetime(shp_dt),"Week Ending: Processed": pd.to_datetime(shp_dt + pd.Timedelta(days=estimated_prcss_tm)), "Quantity": shp_qty}])
-                            shipment_memory = pd.concat([shipment_memory, new_shipment], ignore_index=True) ###########################################################################################
-                            st.success(f"Shipment of {shp_qty} units added for {pd.to_datetime(shp_dt)}.")
-            
-                    # Update shipment values in prediction_df
-                        shipment_df = pd.DataFrame(shipment_memory).groupby(pd.Grouper(key = "Week Ending: Processed", ##########################################
-                                                                                                  freq = "W-SAT"))["Quantity"].sum()
-            
-                    if not shipment_df.empty:
-                        for date in shipment_df.index:
-                            if date in pred_df.index:
-                                pred_df.at[date, "Shipments"] += pd.DataFrame(shipment_df).at[date, "Quantity"]
-            
-                        # Update Inventory
-                        updated_inventory = curr_inv  # Start with initial inventory
-            
-                        for i in range(len(pred_df)):
-                            updated_inventory -= pred_df.iloc[i]["Forecasted Units Sold"]
-                            updated_inventory += pred_df.iloc[i]["Shipments"]
-                            updated_inventory = max(0, updated_inventory)  # Ensure inventory doesn't go negative
-                            pred_df.at[pred_df.index[i], "Forecasted Inventory"] = updated_inventory
-
-                # Prepare Data for Altair Chart
-                pred_df_long = pred_df.reset_index().melt(id_vars=["Week Ending"], 
-                                                                      value_vars=["Forecasted Units Sold", "Forecasted Inventory"], 
-                                                                      var_name="Metric", value_name="Value")
-        
-                # Create Line Chart
-                chart = alt.Chart(pred_df_long).mark_line().encode(
-                                x="Week Ending:T",
-                                y=alt.Y("Value:Q", title="Units"),
-                                color=alt.Color("Metric:N", legend=alt.Legend(title="Legend", symbolSize=50, labelFontSize=12))
-                            )
-                final_chart = chart.properties(width=900, height=400).interactive()
-                st.altair_chart(final_chart, use_container_width=False)
-
-                if st.button(label = "Approve Shipments",
-                             key = f"MANUAL_SHIPMENT_APPROVAL{sc_sku}"):
-                    shipment_memory["SKU"] = sc_sku
-                    shipment_memory["Mode"] = "Manual-Shipment"
-                    st.session_state.shipments = pd.concat([st.session_state.shipments, shipment_memory])
-                    st.success(f"{sc_sku} Shipments saved!")
-
-            with auto_shipment_tab:
-                weeks_cover = st.number_input(label = "Weeks of Cover",
-                                              min_value = 0,
-                                              max_value = 15,
-                                              key = f"wks_cvr{sc_sku}")
+            weeks_cover = st.number_input(label = "Weeks of Cover",
+                                          min_value = 0, 
+                                          max_value = 15,
+                                          key = f"wks_cvr{sc_sku}")
                     
-                case_pallet_toggle = st.segmented_control(label = "Optimization Level",
+            case_pallet_toggle = st.segmented_control(label = "Optimization Level",
                                                          options = ["Case", "Pallet"],
                                                          default = "Case",
                                                          key = f"Optim_Level{sc_sku}")
 
-                auto_shp_rec_df, auto_pred_df = shipment_reco(predicted_demand_df = pred_df, initial_inventory = curr_inv, weeks_of_cover=weeks_cover, 
-                                                              case_qty=case_qty, pallet_qty=pallet_qty, case_pallet_optim = case_pallet_toggle, sku = sc_sku)
+            auto_shp_rec_df, auto_pred_df = shipment_reco(predicted_demand_df = pred_df, initial_inventory = curr_inv, weeks_of_cover=weeks_cover, 
+                                                          case_qty=case_qty, pallet_qty=pallet_qty, case_pallet_optim = case_pallet_toggle, sku = sc_sku)
                 
-                edited_shpmt_df = st.data_editor(auto_shp_rec_df, key = f"DT_Edtr{sc_sku}")
+            edited_shpmt_df = st.data_editor(auto_shp_rec_df, key = f"DT_Edtr{sc_sku}")
 
-                auto_pred_df_long = auto_pred_df.reset_index().melt(id_vars=["Week Ending"], 
-                                                                      value_vars=["Forecasted Units Sold", "Forecasted Inventory"], 
-                                                                      var_name="Metric", value_name="Value")
+            auto_pred_df_long = auto_pred_df.reset_index().melt(id_vars=["Week Ending"], 
+                                                                value_vars=["Forecasted Units Sold", "Forecasted Inventory"], 
+                                                                var_name="Metric", value_name="Value")
         
                 # Create Line Chart
-                auto_chart = alt.Chart(auto_pred_df_long).mark_line().encode(
+            auto_chart = alt.Chart(auto_pred_df_long).mark_line().encode(
                                 x="Week Ending:T",
                                 y=alt.Y("Value:Q", title="Units"),
                                 color=alt.Color("Metric:N", legend=alt.Legend(title="Legend", symbolSize=50, labelFontSize=12))
                             )
-                final_auto_chart = auto_chart.properties(width=900, height=400).interactive()
-                st.altair_chart(final_auto_chart, use_container_width=False)
+            final_auto_chart = auto_chart.properties(width=900, height=400).interactive()
+            st.altair_chart(final_auto_chart, use_container_width=False)
 
-                if st.button(label = "Approve Shipments",
-                             key = f"AUTO_SHIPMENT_APPROVAL{sc_sku}"):
+            if st.button(label = "Approve Shipments",
+                        key = f"AUTO_SHIPMENT_APPROVAL{sc_sku}"):
                     shipment_memory = edited_shpmt_df
                     shipment_memory["SKU"] = sc_sku
                     shipment_memory["Mode"] = "Auto-Shipment"
