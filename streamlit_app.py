@@ -74,12 +74,10 @@ with intro_tab:
      - Tweak the values and click **Approve Shipments** to save changes.  
      - This will **update the master shipment list** (in the Overview tab) with only the approved shipments for that SKU.
 
----
 
 **⚠️ Note:**  
 Running **Run Shipment Recommendations** in the **Overview tab** will **erase all current shipment plans** and start from scratch. Be sure you're ready before proceeding.
 
----
 
 **Happy forecasting!**
 
@@ -353,8 +351,6 @@ if excel_sht:
 
             auto_shp_rec_df, auto_pred_df = shipment_reco(predicted_demand_df = pred_df, initial_inventory = curr_inv, weeks_of_cover=weeks_cover, 
                                                           case_qty=case_qty, pallet_qty=pallet_qty, case_pallet_optim = case_pallet_toggle, sku = sc_sku, verbose = True)
-                
-            edited_shpmt_df = st.data_editor(auto_shp_rec_df, key = f"DT_Edtr{sc_sku}")
 
             auto_pred_df_long = auto_pred_df.reset_index().melt(id_vars=["Week Ending"], 
                                                                 value_vars=["Forecasted Units Sold", "Forecasted Inventory"], 
@@ -371,9 +367,11 @@ if excel_sht:
 
             if st.button(label = "Approve and Update Shipments",
                         key = f"AUTO_SHIPMENT_APPROVAL{sc_sku}"):
+                shipment_memory = auto_shp_rec_df
                 shipment_memory["SKU"] = sc_sku
                 st.session_state.shipments = st.session_state.shipments[st.session_state.shipments["SKU"] != sc_sku]
                 st.session_state.shipments = pd.concat([st.session_state.shipments, shipment_memory])
+                st.rerun()
                 st.success(f"{sc_sku} Shipments saved!")
 
         shipment_planning_func(predicted_df = pred_df)
@@ -415,7 +413,22 @@ if excel_sht:
                      key = "GLOBAL_SHIPMENT_RECO"):
             run_init_shipments(weeks_cover = woc)
 
-        st.dataframe(data = st.session_state.shipments)
+        def display_table():
+            st.table(data = st.session_state.shipments)
+        display_table()
+
+        @st.fragment
+        def download_data():
+            if st.button("Download Shipments"):
+                st.table(st.session_state.shipments)
+                st.download_button(
+                    label = "Download Shipments Data",
+                    data = st.session_state.shipments.to_csv(index=False),
+                    file_name = "shipments.csv",
+                    mime="text/csv",
+                    key="Download_Shipments"
+                    )
+        download_data()
     
 
     with shp_inspct_tab:
@@ -429,27 +442,4 @@ if excel_sht:
                     pred_df = st.session_state.predictions[st.session_state.predictions["SKU"]==insp_sku], 
                     case_qty =  sku_data[insp_sku][1], 
                     pallet_qty =  sku_data[insp_sku][2])
-        
-
-with intro_tab:
-    
-    st.title("Shipment Manager")
-    @st.fragment
-    def download_disp_data():
-        if st.button("Display & Download Shipments"):
-            st.table(st.session_state.shipments)
-            st.download_button(
-                label = "Download Shipments Data",
-                data = st.session_state.shipments.to_csv(index=False),
-                file_name = "shipments.csv",
-                mime="text/csv",
-                key="Download_Shipments"
-                )
-    download_disp_data()
-
-    #st.divider()
-    #@st.fragment
-    #def clear_mem():
-    #    if st.button("Clear All Shipment Data"):
-    #        st.session_state.shipments = pd.DataFrame()
-    #clear_mem()
+            
