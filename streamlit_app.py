@@ -1,7 +1,3 @@
-##########################
-# NEW FORMAT 04/30
-##########################
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -13,8 +9,6 @@ from skforecast.model_selection import TimeSeriesFold
 from skforecast.model_selection import backtesting_forecaster
 from skforecast.model_selection import grid_search_forecaster
 from sklearn.preprocessing import RobustScaler
-import warnings
-warnings.filterwarnings("ignore")
 
 
 st.title("Seller Central Shipment Forecast")
@@ -25,8 +19,10 @@ if "shipments" not in st.session_state:
 if "predictions" not in st.session_state:
     st.session_state.predictions = pd.DataFrame()
 
-excel_sht = st.file_uploader(label = "Upload SC Rolling Sales Report",
+excel_sht = st.file_uploader(label = "Upload SC Rolling Sales Report (.xlsx)",
                              type = ".xlsx")
+inv_csv = st.file_uploader(label = "Upload Inventory Data (.csv)",
+                             type = ".csv")
 
 intro_tab, shpt_ovr_tab, shp_inspct_tab = st.tabs(["Instructions", "Shipment Overview", "Shipment Inspector"])
 
@@ -40,6 +36,18 @@ sku_data = {"40-05-BTO-A220-CS": ["1999-01-01", 20, 75],
             "40-05-GSO-50BIB-CS": ["2023-01-01", 3, 60],
             "40-05-EVO-50BIB-CS": ["2023-01-01", 3, 60],
             "40-05-PEA-50BIB-CS": ["2023-01-01", 3, 60]}
+sku_replacement = {"40-05-WTO-A220-CS-stickerless":"40-05-WTO-A220-CS",
+                   "40-05-EVO-0750-CS-stickerless": "40-05-EVO-0750-CS",
+                   "40-05-HZL-A512-CS":"40-05-HZL-0500-CS",
+                   857190000675:"40-05-PIO-0250-CS",
+                   "40-05-GSO-50BIB-CS-stickerless":"40-05-GSO-50BIB-CS"}
+
+if inv_csv:
+    inv_dt = pd.read_csv(inv_csv)
+    inv_dt["sku"] = inv_dt["sku"].replace(sku_replacement)
+    inv_cols_of_interest = ['afn-warehouse-quantity', 'afn-inbound-working-quantity', 'afn-inbound-shipped-quantity', 'afn-inbound-receiving-quantity', 'afn-unsellable-quantity']
+    inv_dt = inv_dt.groupby("sku")[inv_cols_of_interest].sum()
+    current_inventory_levels = inv_dt.iloc[:,:4].sum(axis=1) - inv_dt['afn-unsellable-quantity']
 
 with intro_tab:
 
@@ -84,10 +92,7 @@ if excel_sht:
                                                                                                                         axis=1)
 
     SC_demand["Week Ending"] = pd.to_datetime(SC_demand["Week Ending"])
-    SC_demand["SKU"] = SC_demand["SKU"].replace({"40-05-WTO-A220-CS-stickerless":"40-05-WTO-A220-CS",
-                                                 "40-05-EVO-0750-CS-stickerless": "40-05-EVO-0750-CS",
-                                                 "40-05-HZL-A512-CS":"40-05-HZL-0500-CS",
-                                                 857190000675:"40-05-PIO-0250-CS"})
+    SC_demand["SKU"] = SC_demand["SKU"].replace(sku_replacement)
     SC_demand = SC_demand[SC_demand["SKU"].isin(["40-05-WTO-A220-CS", "40-05-BTO-A220-CS", 
                                                  "40-05-EVO-A712-CS", "40-05-EVO-0750-CS", 
                                                  "40-05-HZL-0500-CS", "40-05-WAL-50BIB-CS", 
@@ -314,7 +319,7 @@ if excel_sht:
             curr_inv = st.number_input(label="Current Inventory Level", 
                                                min_value=0, 
                                                key= f"Curr_Inv{sc_sku}",
-                                               value = 1000)
+                                               value = current_inventory_levels[sc_sku])
         
             pred_df["Forecasted Inventory"] = np.clip(curr_inv - pred_df['forc_unit_csum'],0,None)
 
@@ -380,7 +385,7 @@ if excel_sht:
             
                 pred_df = run_forecast(sku = key, data = SC_demand_filled[SC_demand_filled.index>=list(sku_data.values())[i][0]], cross_validation = cv)
                 
-                shipment_memory = shipment_reco(predicted_demand_df = pred_df, initial_inventory = 1000, 
+                shipment_memory = shipment_reco(predicted_demand_df = pred_df, initial_inventory = current_inventory_levels[key], 
                                           weeks_of_cover = weeks_cover, 
                                           case_qty = list(sku_data.values())[i][1], pallet_qty = list(sku_data.values())[i][2], 
                                           sku = key, 
