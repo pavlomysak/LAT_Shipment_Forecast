@@ -408,19 +408,22 @@ if excel_sht:
 
                 pred_df["SKU"] = key
                 st.session_state.predictions = pd.concat([st.session_state.predictions, pred_df])
-        
+            
         if st.button(label = "Run Shipment Recommendations",
                      key = "GLOBAL_SHIPMENT_RECO"):
             run_init_shipments(weeks_cover = woc)
 
-        if not st.session_state.shipments.empty:
-                def display_table():
-                    st.table(data = st.session_state.shipments)
-                display_table()
+        if st.session_state.shipments.empty:
+                run_init_shipments(weeks_cover = woc)
+
+
+
+        st.table(data = st.session_state.shipments)
+
         
-                @st.fragment
-                def download_data():
-                    if st.button("Download Shipments"):
+        @st.fragment
+        def download_data():
+                if st.button("Download Shipments"):
                         st.table(st.session_state.shipments)
                         st.download_button(
                             label = "Download Shipments Data",
