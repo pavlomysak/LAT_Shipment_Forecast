@@ -432,7 +432,7 @@ if excel_sht:
                             mime="text/csv",
                             key="Download_Shipments"
                             )
-                download_data()
+        download_data()
     
 
     with shp_inspct_tab:
