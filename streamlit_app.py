@@ -413,22 +413,23 @@ if excel_sht:
                      key = "GLOBAL_SHIPMENT_RECO"):
             run_init_shipments(weeks_cover = woc)
 
-        def display_table():
-            st.table(data = st.session_state.shipments)
-        display_table()
-
-        @st.fragment
-        def download_data():
-            if st.button("Download Shipments"):
-                st.table(st.session_state.shipments)
-                st.download_button(
-                    label = "Download Shipments Data",
-                    data = st.session_state.shipments.to_csv(index=False),
-                    file_name = "shipments.csv",
-                    mime="text/csv",
-                    key="Download_Shipments"
-                    )
-        download_data()
+        if st.session_state.shipments:
+                def display_table():
+                    st.table(data = st.session_state.shipments)
+                display_table()
+        
+                @st.fragment
+                def download_data():
+                    if st.button("Download Shipments"):
+                        st.table(st.session_state.shipments)
+                        st.download_button(
+                            label = "Download Shipments Data",
+                            data = st.session_state.shipments.to_csv(index=False),
+                            file_name = "shipments.csv",
+                            mime="text/csv",
+                            key="Download_Shipments"
+                            )
+                download_data()
     
 
     with shp_inspct_tab:
