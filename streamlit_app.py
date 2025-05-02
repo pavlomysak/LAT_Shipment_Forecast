@@ -1,3 +1,7 @@
+##########################
+# NEW FORMAT 04/30
+##########################
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -9,6 +13,8 @@ from skforecast.model_selection import TimeSeriesFold
 from skforecast.model_selection import backtesting_forecaster
 from skforecast.model_selection import grid_search_forecaster
 from sklearn.preprocessing import RobustScaler
+import warnings
+warnings.filterwarnings("ignore")
 
 
 st.title("Seller Central Shipment Forecast")
@@ -16,14 +22,24 @@ st.title("Seller Central Shipment Forecast")
 if "shipments" not in st.session_state:
         st.session_state.shipments = pd.DataFrame()
 
+if "predictions" not in st.session_state:
+    st.session_state.predictions = pd.DataFrame()
+
 excel_sht = st.file_uploader(label = "Upload SC Rolling Sales Report",
                              type = ".xlsx")
 
-intro_tab, bto_tab, wto_tab, evo750_tab, hzl500_tab, walbib_tab, avobib_tab, tsobib_tab, gsobib_tab, evobib_tab, peabib_tab = st.tabs(["Instructions", "BTO220", 
-                                                                                                                           "WTO220", "EVO750", 
-                                                                                                                           "HZL500", "WALBIB", 
-                                                                                                                           "AVOBIB", "TSOBIB",
-                                                                                                                           "GSOBIB", "EVOBIB", "PEABIB"])
+intro_tab, shpt_ovr_tab, shp_inspct_tab = st.tabs(["Instructions", "Shipment Overview", "Shipment Inspector"])
+
+sku_data = {"40-05-BTO-A220-CS": ["1999-01-01", 20, 75],
+            "40-05-WTO-A220-CS": ["1999-01-01", 20, 75],
+            "40-05-EVO-0750-CS": ["2024-01-01", 6, 132],
+            "40-05-HZL-0500-CS": ["2024-01-01", 6, 196],
+            "40-05-WAL-50BIB-CS": ["2023-02-01", 3, 60],
+            "40-05-AVO-50BIB-CS": ["2023-06-01", 3, 60],
+            "40-05-TSO-50BIB-CS": ["2023-01-01", 3, 60],
+            "40-05-GSO-50BIB-CS": ["2023-01-01", 3, 60],
+            "40-05-EVO-50BIB-CS": ["2023-01-01", 3, 60],
+            "40-05-PEA-50BIB-CS": ["2023-01-01", 3, 60]}
 
 with intro_tab:
 
@@ -103,47 +119,139 @@ if excel_sht:
                      differentiation = 1
                      )
 
-    # Defining Forecasting Function
     def run_forecast(sku, data, cross_validation):
+        
+            sc_sku = sku
+            last_date = data.index.max()
+            horizon = 42
+            y_data = data[(data["SKU"]==sc_sku)].loc[:,"Units Sold"]
+            cv = cross_validation
+        
+            # LightGBM Forecaster
+            LGBM_forec = ForecasterRecursive(regressor = LGBMRegressor(random_state = 42, 
+                                                                       verbose=0,
+                                                                       max_depth = 10,
+                                                                       n_estimators = 300,
+                                                                       boosting_type = "dart"),
+                                             window_features = RollingFeatures(stats=['mean', 'min', 'max'], window_sizes=8),
+                                             transformer_y = RobustScaler(),
+                                             differentiation = 1,
+                                             lags = 8)
+                    
+            results_grid = grid_search_forecaster(forecaster = LGBM_forec,
+                                                  y = y_data.reset_index(drop=True),
+                                                  param_grid = {"learning_rate":[0.1, 0.05, 0.01]},
+                                                  cv = cv,
+                                                  metric = 'mean_squared_error',
+                                                  return_best = True,
+                                                  n_jobs = 'auto',
+                                                  verbose = False,
+                                                  show_progress = False
+                                                 )
+        
+            LGBM_forec.fit(y=y_data)
+        
+            prediction_df = pd.DataFrame({"Forecasted Units Sold": round(LGBM_forec.predict(horizon).reset_index(drop=True)),
+                                          "Week Ending": pd.date_range(start=last_date + pd.Timedelta(weeks=1), end=last_date + pd.Timedelta(weeks=horizon), freq="W-SAT")
+                                         }).set_index("Week Ending")
+        
+            prediction_df["forc_unit_csum"] = prediction_df["Forecasted Units Sold"].cumsum()
+            prediction_df["Shipments"] = 0  
     
-        sc_sku = sku
-        last_date = data.index.max()
-        horizon = 42
-        y_data = data[(data["SKU"]==sc_sku)].loc[:,"Units Sold"]
-        cv = cross_validation
+            return np.clip(prediction_df, 0, None)
     
-        # LightGBM Forecaster
-        LGBM_forec = ForecasterRecursive(regressor = LGBMRegressor(random_state = 42, 
-                                                                   verbose=1,
-                                                                   max_depth = 10,
-                                                                   n_estimators = 300,
-                                                                   boosting_type = "dart"),
-                                         window_features = RollingFeatures(stats=['mean', 'min', 'max'], window_sizes=8),
-                                         transformer_y = RobustScaler(),
-                                         differentiation = 1,
-                                         lags = 8)
-                
-        results_grid = grid_search_forecaster(forecaster = LGBM_forec,
-                                              y = y_data.reset_index(drop=True),
-                                              param_grid = {"learning_rate":[0.1, 0.05, 0.01]},
-                                              cv = cv,
-                                              metric = 'mean_squared_error',
-                                              return_best = True,
-                                              n_jobs = 'auto',
-                                              verbose = False,
-                                              show_progress = False
-                                             )
     
-        LGBM_forec.fit(y=y_data)
     
-        prediction_df = pd.DataFrame({"Forecasted Units Sold": round(LGBM_forec.predict(horizon).reset_index(drop=True)),
-                                      "Week Ending": pd.date_range(start=last_date + pd.Timedelta(weeks=1), end=last_date + pd.Timedelta(weeks=horizon), freq="W-SAT")
-                                     }).set_index("Week Ending")
+    def shipment_reco(predicted_demand_df, initial_inventory, weeks_of_cover, case_qty, pallet_qty, sku, case_pallet_optim = "Pallet", verbose = False):
     
-        prediction_df["forc_unit_csum"] = prediction_df["Forecasted Units Sold"].cumsum()
-        prediction_df["Shipments"] = 0  
+            sc_sku = sku
+            recommended_shipments = []
+            pred_df = predicted_demand_df.copy()  # Work on a copy to avoid modifying the original DataFrame
+            pred_df["Forecasted Inventory"] = 0  # Reset inventory for recalculating
+            current_inventory = initial_inventory
+            
+            expl_str = ""
+            for i in range(len(pred_df)):
+                    
+                # If we've already created a shipment (no need to calculate forecasted inventory)
+                if recommended_shipments:
+                    current_inventory = pred_df.iloc[i]["Forecasted Inventory"]
+                # If no shipments have been made and we need to initialize forecasted inventory
+                else:
+                    current_inventory -= pred_df.iloc[i]["Forecasted Units Sold"]
+                    current_inventory = max(0, current_inventory)
+                    pred_df.loc[pred_df.index[i], "Forecasted Inventory"] = current_inventory
 
-        return np.clip(prediction_df, 0, None)
+                if ((pred_df.loc[pred_df.index[i-1], "Forecasted Inventory"] == 0) & ( pred_df.loc[pred_df.index[i], "Forecasted Inventory"] == 0)):
+            
+                    if not expl_str =="":
+                        expl_str += f"""
+            -- {pred_df.index[i]}- OOS. Waiting for last shipment to arrive before continuing... 
+        """
+                    continue
+                
+                if current_inventory == 0:
+                    zero_date = pred_df.index[i]  # Save date when inventory = 0
+                    shp_avail_dt = zero_date - pd.Timedelta(weeks=weeks_of_cover)  # Adjust for Desired Weeks of Cover
+                    
+                            # Find optimal shipment quantity
+                    optim_qty = EOQ_func(date=zero_date, demand=pred_df["Forecasted Units Sold"][i:i+4].sum(), sku = sc_sku, min_qty=4*6)
+                    if case_pallet_optim == "Pallet":
+                            optim_qty = max(1, round(optim_qty / case_qty / pallet_qty)) * pallet_qty * case_qty # OPTIMIZE FOR PALLET. IF ROUNDS TO 0, DEFAULTS TO 1.
+                    elif case_pallet_optim == "Case":
+                            optim_qty = round(optim_qty/case_qty)*case_qty # OPTIMIZE FOR CASE
+ 
+                    
+                    # Estimate processing lead time
+                    prcss_wks = round(OLS_prcssng_tm_bckwrd(quantity=optim_qty, close_date=shp_avail_dt) / 7)
+                    creation_date = shp_avail_dt - pd.Timedelta(weeks=prcss_wks)
+                    print(optim_qty, creation_date)
+                            # Send shipment out next monday if recommended creation date is before today
+                    if creation_date < pd.Timestamp.today():
+                        creation_date = pd.to_datetime(np.busday_offset(np.datetime64('today', 'D') , offsets = 0, roll="forward", weekmask='Sat'))
+                        prcss_wks =  round(OLS_prcssng_tm(quantity=optim_qty, creation_date=creation_date) / 7)
+                        shp_avail_dt = creation_date + pd.Timedelta(weeks = prcss_wks)
+            
+                        expl_str += f"""
+            - We are projected to run out of inventory on {zero_date}. 
+            {weeks_of_cover} weeks of cover not possible.
+            Earliest possible shipment available date: {shp_avail_dt}.
+            Add {prcss_wks} weeks of estimated processing time.
+            Shipment creation date: {creation_date}.
+            """
+                    else:
+                        expl_str += f"""
+            - We are projected to run out of inventory on {zero_date}. 
+            Subtract {weeks_of_cover} weeks of cover: {shp_avail_dt}.
+            Add {prcss_wks} weeks of estimated processing time.
+            Shipment creation date: {creation_date}.
+            """
+                        
+                    
+                            # Append shipment recommendation
+                    recommended_shipments.append({"Creation Date": creation_date, "Units": optim_qty, "Cases": round(optim_qty/case_qty), "Pallets": round(optim_qty/case_qty/pallet_qty,2), "Availability Date":shp_avail_dt})
+                    
+                    if shp_avail_dt in pred_df.index:
+                        future_index = pred_df.index.get_loc(shp_avail_dt)
+                                
+                        # Add shipment quantity to inventory
+                        current_inventory_shp = optim_qty + pred_df.loc[pred_df.index[future_index], "Forecasted Inventory"]
+                        pred_df.loc[pred_df.index[future_index], "Forecasted Inventory"] = current_inventory_shp
+                    
+                        # Recalculate running inventory
+                        for j in range(future_index+1, len(pred_df)):
+                            current_inventory_shp -= pred_df.iloc[j]["Forecasted Units Sold"]
+                            current_inventory_shp = max(0, current_inventory_shp)
+                            pred_df.loc[pred_df.index[j], "Forecasted Inventory"] = current_inventory_shp
+                    
+                    if shp_avail_dt not in pred_df.index:
+                        break
+            if verbose == True:
+                with st.expander("Shipment Logic"):
+                    st.write(expl_str)
+            
+            return pd.DataFrame(recommended_shipments), pred_df
+
 
     # Defining OLS processing time estimator
     def OLS_prcssng_tm(quantity, creation_date):
@@ -182,108 +290,11 @@ if excel_sht:
         EOQ = np.sqrt(90*demand*6*1.2/(volume*strg_rt*6))
     
         return max(min_qty, np.round(EOQ))
-    
-    # Defining shipment auto-recommendation
-    def shipment_reco(predicted_demand_df, initial_inventory, weeks_of_cover, case_qty, pallet_qty, case_pallet_optim, sku):
+
+
+    def product_tab(sku, pred_df, case_qty, pallet_qty):
 
         sc_sku = sku
-        recommended_shipments = []
-        pred_df = predicted_demand_df.copy()  # Work on a copy to avoid modifying the original DataFrame
-        pred_df["Forecasted Inventory"] = 0  # Reset inventory for recalculating
-        current_inventory = initial_inventory
-        
-        expl_str = ""
-        for i in range(len(pred_df)):
-                
-            # If we've already created a shipment (no need to calculate forecasted inventory)
-            if recommended_shipments:
-                current_inventory = pred_df.iloc[i]["Forecasted Inventory"]
-            # If no shipments have been made and we need to initialize forecasted inventory
-            else:
-                current_inventory -= pred_df.iloc[i]["Forecasted Units Sold"]
-                current_inventory = max(0, current_inventory)
-                pred_df.loc[pred_df.index[i], "Forecasted Inventory"] = current_inventory
-                
-            if (pred_df.loc[pred_df.index[i-1], "Forecasted Inventory"] == 0) & ( pred_df.loc[pred_df.index[i], "Forecasted Inventory"] == 0):
-        
-                if not expl_str =="":
-                    expl_str += f"""
-        -- {pred_df.index[i]}- OOS. Waiting for last shipment to arrive before continuing... 
-    """
-                continue
-            
-            if current_inventory == 0:
-                zero_date = pred_df.index[i]  # Save date when inventory = 0
-                shp_avail_dt = zero_date - pd.Timedelta(weeks=weeks_of_cover)  # Adjust for Desired Weeks of Cover
-                
-                        # Find optimal shipment quantity
-                optim_qty = EOQ_func(date=zero_date, demand=pred_df["Forecasted Units Sold"][i:i+4].sum(), sku = sc_sku, min_qty=4*6)
-                if case_pallet_optim == "Pallet":
-                        optim_qty = max(1, round(optim_qty / case_qty / pallet_qty) * pallet_qty * case_qty) # OPTIMIZE FOR PALLET. IF ROUNDS TO 0, DEFAULTS TO 1.
-                if case_pallet_optim == "Case":
-                        optim_qty = round(optim_qty/case_qty)*case_qty # OPTIMIZE FOR CASE
-                else:
-                      optim_qty = round(optim_qty/case_qty)*case_qty # OPTIMIZE FOR CASE  
-                
-                # Estimate processing lead time
-                prcss_wks = round(OLS_prcssng_tm_bckwrd(quantity=optim_qty, close_date=shp_avail_dt) / 7)
-                creation_date = shp_avail_dt - pd.Timedelta(weeks=prcss_wks)
-                
-                        # Send shipment out next monday if recommended creation date is before today
-                if creation_date < pd.Timestamp.today():
-                    creation_date = pd.to_datetime(np.busday_offset(np.datetime64('today', 'D') , offsets = 0, roll="forward", weekmask='Sat'))
-                    prcss_wks =  round(OLS_prcssng_tm(quantity=optim_qty, creation_date=creation_date) / 7)
-                    shp_avail_dt = creation_date + pd.Timedelta(weeks = prcss_wks)
-        
-                    expl_str += f"""
-        - We are projected to run out of inventory on {zero_date}. 
-        {weeks_of_cover} weeks of cover not possible.
-        Earliest possible shipment available date: {shp_avail_dt}.
-        Add {prcss_wks} weeks of estimated processing time.
-        Shipment creation date: {creation_date}.
-        """
-                else:
-                    expl_str += f"""
-        - We are projected to run out of inventory on {zero_date}. 
-        Subtract {weeks_of_cover} weeks of cover: {shp_avail_dt}.
-        Add {prcss_wks} weeks of estimated processing time.
-        Shipment creation date: {creation_date}.
-        """
-                    
-                
-                        # Append shipment recommendation
-                recommended_shipments.append({"Creation Date": creation_date, "Units": optim_qty, "Cases": round(optim_qty/case_qty), "Pallets": round(optim_qty/case_qty/pallet_qty,2), "Availability Date":shp_avail_dt})
-                
-                if shp_avail_dt in pred_df.index:
-                    future_index = pred_df.index.get_loc(shp_avail_dt)
-                            
-                    # Add shipment quantity to inventory
-                    current_inventory_shp = optim_qty + pred_df.loc[pred_df.index[future_index], "Forecasted Inventory"]
-                    pred_df.loc[pred_df.index[future_index], "Forecasted Inventory"] = current_inventory_shp
-                
-                    # Recalculate running inventory
-                    for j in range(future_index+1, len(pred_df)):
-                        current_inventory_shp -= pred_df.iloc[j]["Forecasted Units Sold"]
-                        current_inventory_shp = max(0, current_inventory_shp)
-                        pred_df.loc[pred_df.index[j], "Forecasted Inventory"] = current_inventory_shp
-                
-                if shp_avail_dt not in pred_df.index:
-                    break
-
-        with st.expander("Shipment Logic"):
-            st.write(expl_str)
-        
-        return pd.DataFrame(recommended_shipments), pred_df
-
-
-
-    def product_tab(sku, case_qty, pallet_qty, launch_date="1999-01-01"):
-
-        sc_sku = sku
-        
-        ##############################
-        # BEGIN FORECASTING
-        pred_df = run_forecast(sku = sc_sku, data = SC_demand_filled[SC_demand_filled.index>=launch_date], cross_validation = cv)
     
         st.header(f"{sc_sku} 20-Week Forecast")
         st.line_chart(
@@ -314,6 +325,7 @@ if excel_sht:
             weeks_cover = st.number_input(label = "Weeks of Cover",
                                           min_value = 0, 
                                           max_value = 15,
+                                          value = 10,
                                           key = f"wks_cvr{sc_sku}")
                     
             case_pallet_toggle = st.segmented_control(label = "Optimization Level",
@@ -322,7 +334,7 @@ if excel_sht:
                                                          key = f"Optim_Level{sc_sku}")
 
             auto_shp_rec_df, auto_pred_df = shipment_reco(predicted_demand_df = pred_df, initial_inventory = curr_inv, weeks_of_cover=weeks_cover, 
-                                                          case_qty=case_qty, pallet_qty=pallet_qty, case_pallet_optim = case_pallet_toggle, sku = sc_sku)
+                                                          case_qty=case_qty, pallet_qty=pallet_qty, case_pallet_optim = case_pallet_toggle, sku = sc_sku, verbose = True)
                 
             edited_shpmt_df = st.data_editor(auto_shp_rec_df, key = f"DT_Edtr{sc_sku}")
 
@@ -339,51 +351,74 @@ if excel_sht:
             final_auto_chart = auto_chart.properties(width=900, height=400).interactive()
             st.altair_chart(final_auto_chart, use_container_width=False)
 
-            if st.button(label = "Approve Shipments",
+            if st.button(label = "Approve and Update Shipments",
                         key = f"AUTO_SHIPMENT_APPROVAL{sc_sku}"):
-                    shipment_memory = edited_shpmt_df
-                    shipment_memory["SKU"] = sc_sku
-                    shipment_memory["Mode"] = "Auto-Shipment"
-                    st.session_state.shipments = pd.concat([st.session_state.shipments, shipment_memory]) ########################################
-                    st.success(f"{sc_sku} Shipments saved!")
+                shipment_memory["SKU"] = sc_sku
+                st.session_state.shipments = st.session_state.shipments[st.session_state.shipments["SKU"] != sc_sku]
+                st.session_state.shipments = pd.concat([st.session_state.shipments, shipment_memory])
+                st.success(f"{sc_sku} Shipments saved!")
 
         shipment_planning_func(predicted_df = pred_df)
 
+
+
+    
+    with shpt_ovr_tab:
+
+        woc = st.number_input(label = "Weeks of Cover",
+                       min_value = 0,
+                       max_value = 15,
+                       value = 10,
+                       key = "OVRVW_WOC")
+        
+        @st.fragment
+        def run_init_shipments(weeks_cover):
+            st.session_state.shipments = pd.DataFrame()
+            st.session_state.predictions = pd.DataFrame()
+            shipment_memory = pd.DataFrame()
+            for i, key in enumerate(sku_data.keys()):
+            
+                pred_df = run_forecast(sku = key, data = SC_demand_filled[SC_demand_filled.index>=list(sku_data.values())[i][0]], cross_validation = cv)
+                
+                shipment_memory = shipment_reco(predicted_demand_df = pred_df, initial_inventory = 1000, 
+                                          weeks_of_cover = weeks_cover, 
+                                          case_qty = list(sku_data.values())[i][1], pallet_qty = list(sku_data.values())[i][2], 
+                                          sku = key, 
+                              case_pallet_optim = "Pallet",
+                              verbose = False)[0]
+                
+                shipment_memory["SKU"] = key
+                st.session_state.shipments = pd.concat([st.session_state.shipments, shipment_memory])
+
+                pred_df["SKU"] = key
+                st.session_state.predictions = pd.concat([st.session_state.predictions, pred_df])
+        
+        if st.button(label = "Run Shipment Recommendations",
+                     key = "GLOBAL_SHIPMENT_RECO"):
+            run_init_shipments(weeks_cover = woc)
+
+        st.dataframe(data = st.session_state.shipments)
     
 
-    ###############################
-    # BEGIN BTO
-    ###############################
+    with shp_inspct_tab:
 
-    with bto_tab:
-        product_tab(sku = "40-05-BTO-A220-CS", case_qty=20, pallet_qty=75)
+        insp_sku = st.selectbox(label = "Select SKU to Inspect",
+                           options = list(sku_data.keys()),
+                           key = "Inspect_Selector")
 
-    with wto_tab:
-        product_tab(sku = "40-05-WTO-A220-CS", case_qty=20, pallet_qty=75)
+        
+        product_tab(sku = insp_sku, 
+                    pred_df = st.session_state.predictions[st.session_state.predictions["SKU"]==insp_sku], 
+                    case_qty =  sku_data[insp_sku][1], 
+                    pallet_qty =  sku_data[insp_sku][2])
+        
 
-    with evo750_tab:
-        product_tab(sku = "40-05-EVO-0750-CS", launch_date = "2024-01-01", case_qty=6, pallet_qty=132)
 
-    with hzl500_tab:
-            product_tab(sku = "40-05-HZL-0500-CS", launch_date = "2024-01-01", case_qty=6, pallet_qty=196)
 
-    with walbib_tab:
-            product_tab(sku = "40-05-WAL-50BIB-CS", launch_date = "2023-02-01", case_qty=3, pallet_qty=60)
 
-    with avobib_tab:
-            product_tab(sku = "40-05-AVO-50BIB-CS", launch_date = "2023-06-01", case_qty=3, pallet_qty=60)
 
-    with tsobib_tab:
-            product_tab(sku = "40-05-TSO-50BIB-CS", launch_date = "2023-01-01", case_qty=3, pallet_qty=60)
 
-    with gsobib_tab:
-            product_tab(sku = "40-05-GSO-50BIB-CS", launch_date = "2023-01-01", case_qty=3, pallet_qty=60)
-
-    with evobib_tab:
-            product_tab(sku = "40-05-EVO-50BIB-CS", launch_date = "2023-01-01", case_qty=3, pallet_qty=60)
-
-    with peabib_tab:
-            product_tab(sku = "40-05-PEA-50BIB-CS", launch_date = "2023-01-01", case_qty=3, pallet_qty=60)
+# ENDING ##############################################################################################################################
 
 with intro_tab:
     
