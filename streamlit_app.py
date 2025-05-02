@@ -413,7 +413,7 @@ if excel_sht:
                      key = "GLOBAL_SHIPMENT_RECO"):
             run_init_shipments(weeks_cover = woc)
 
-        if st.session_state.shipments:
+        if not st.session_state.shipments.empty:
                 def display_table():
                     st.table(data = st.session_state.shipments)
                 display_table()
