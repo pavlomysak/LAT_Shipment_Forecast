@@ -19,9 +19,9 @@ if "shipments" not in st.session_state:
 if "predictions" not in st.session_state:
     st.session_state.predictions = pd.DataFrame()
 
-excel_sht = st.file_uploader(label = "Upload SC Rolling Sales Report (.xlsx)",
+excel_sht = st.file_uploader(label = "Upload SC Rolling Sales Report",
                              type = ".xlsx")
-inv_csv = st.file_uploader(label = "Upload Inventory Data (.csv)",
+inv_csv = st.file_uploader(label = "Upload Inventory Data",
                              type = ".csv")
 
 intro_tab, shpt_ovr_tab, shp_inspct_tab = st.tabs(["Instructions", "Shipment Overview", "Shipment Inspector"])
@@ -54,22 +54,35 @@ with intro_tab:
     st.subheader("Welcome!")
 
     st.markdown("""
-                How to use this tool:
-                - Click "Browse Files" above and upload **Amazon Seller Central** Report Rolling from teams.
+### 🚚 How to Use This Tool
 
-                - Select any of the product tabs above to get started:
-                    - At the top will be a 20-week demand forecast. 
-                    - To view forecasted inventory, input the **current inventory level + Inbound Shipments** (Found in Safety Stock Report).
-                    - To use the shipment planning tool, you have two options: **Manual Shipment** or **Auto-Shipment**
-                    - To use the **Manual Shipment Tool:**
-                        - Examine the **Shipment Planning Chart** and use the *Add Shipment* feature to plan accordingly.
-                    - To use the **Auto Shipment Tool:**
-                        - Input desired Weeks of Cover, examine recommended shipment dataframe and forecasted inventory chart.
-                        - When happy with results, click "Approve Shipments" to save them to memory.
-                    - Once all your shipments are planned and saved, click "Display & Download Shipments" at the bottom of this page.
-                    - If you'd like to redo your shipment planning, click **Clear All Shipment Data** at the bottom of this page.
-                
-                Happy forecasting!
+1. **Upload Your Files**  
+   - Upload the **Seller Central Rolling Sales** report (from Teams).  
+   - Upload the **Inventory Report** from the *Manage FBA Inventory* tab on Amazon Seller Central.
+
+2. **Shipment Overview Tab**  
+   - View **all recommended shipments** in one place.  
+   - You can **sort shipments by creation date** by clicking the *Creation Date* column header.  
+   - To start over, click **Run Shipment Recommendations** — but note this will **reset all saved shipment planning progress**.
+
+3. **Shipment Inspector Tab**  
+   - Click on any shipment to view detailed information:  
+     - **20-week demand forecast**  
+     - A visual of **planned shipments vs. demand**  
+     - A plain-English explanation of the **shipment logic**
+   - Want to adjust the settings (e.g., Weeks of Cover)?  
+     - Tweak the values and click **Approve Shipments** to save changes.  
+     - This will **update the master shipment list** (in the Overview tab) with only the approved shipments for that SKU.
+
+---
+
+**⚠️ Note:**  
+Running **Run Shipment Recommendations** in the **Overview tab** will **erase all current shipment plans** and start from scratch. Be sure you're ready before proceeding.
+
+---
+
+**Happy forecasting!**
+
                 """)
 
     st.divider()
@@ -80,7 +93,7 @@ with intro_tab:
                 cumulatively subtracting the starting inventory from the forecasted demand.
              - we use an OLS model to estimate total order processing time and add it to any shipment.
              - We create and add planned shipments and update the rolling inventory forecast.
-             - In the auto-shipment feature, we use an EOQ model to determine the optimal quantity per shipment.""")
+             - We use an EOQ model to determine the optimal quantity per shipment.""")
     
     st.divider()
 
@@ -418,13 +431,6 @@ if excel_sht:
                     pallet_qty =  sku_data[insp_sku][2])
         
 
-
-
-
-
-
-# ENDING ##############################################################################################################################
-
 with intro_tab:
     
     st.title("Shipment Manager")
@@ -441,10 +447,9 @@ with intro_tab:
                 )
     download_disp_data()
 
-    st.divider()
-
-    @st.fragment
-    def clear_mem():
-        if st.button("Clear All Shipment Data"):
-            st.session_state.shipments = pd.DataFrame()
-    clear_mem()
+    #st.divider()
+    #@st.fragment
+    #def clear_mem():
+    #    if st.button("Clear All Shipment Data"):
+    #        st.session_state.shipments = pd.DataFrame()
+    #clear_mem()
