@@ -400,7 +400,7 @@ if excel_sht:
                                           weeks_of_cover = weeks_cover, 
                                           case_qty = list(sku_data.values())[i][1], pallet_qty = list(sku_data.values())[i][2], 
                                           sku = key, 
-                              case_pallet_optim = "Pallet",
+                              case_pallet_optim = "Case",
                               verbose = False)[0]
                 
                 shipment_memory["SKU"] = key
