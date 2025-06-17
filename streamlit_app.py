@@ -215,7 +215,7 @@ if excel_sht:
         else: # If in Q1, Q2, Q3; $0.78
             strg_rt = 0.78
 
-        EOQ = np.sqrt(200*demand*6*1.2/(volume*strg_rt*6))
+        EOQ = np.sqrt(120*demand*6*1.2/(volume*strg_rt*6))
     
         return max(min_qty, np.round(EOQ))
 
@@ -244,7 +244,18 @@ if excel_sht:
 
         # BASE CASE ################ ---------------------------------------------------
         if all([value.iloc[-1,1]!=0 for value in predictions.values()]):
-            return pd.DataFrame(recommended_shipments), predictions, explanations
+            recod_shipments = pd.DataFrame(recommended_shipments)
+            cases = []
+            pallets = []
+            for row in range(len(recod_shipments)):
+                case = round(recod_shipments["Units"][row]/sku_data[recod_shipments["SKU"][row]][1])
+                pallet = round(case / sku_data[recod_shipments["SKU"][row]][2], 2)
+                cases.append(case)
+                pallets.append(pallet)
+            recod_shipments["Cases"] = cases
+            recod_shipments["Pallets"] = pallets
+
+            return recod_shipments, predictions, explanations
         # BASE CASE ################ ---------------------------------------------------
         
         for week_i in range(forecast_horizon-1, 0, -1):
@@ -263,6 +274,11 @@ if excel_sht:
                     optim_qty = EOQ_func(date=zero_date, demand=forecasted_demand, sku=sku, min_qty=4 * 6)
                     optim_case_qty = round(optim_qty / sku_data[sku][1])
                     optim_pallet_qty = optim_case_qty / sku_data[sku][2]
+                    
+                    # if pallet +- 0.2, round to pallet qty
+                    rounded_pallet_qty = round(optim_pallet_qty)
+                    if abs(optim_pallet_qty - rounded_pallet_qty) <= 0.2 and rounded_pallet_qty >= 1:
+                        optim_qty = int(rounded_pallet_qty * sku_data[sku][2] * sku_data[sku][1])
 
                     # Save SKU and Quantity information in weekly temp list
                     wkly_shpmts.append({"SKU": sku, "Quantity": optim_qty})
