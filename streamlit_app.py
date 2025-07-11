@@ -219,6 +219,7 @@ if excel_sht:
     
         return max(min_qty, np.round(EOQ))
 
+    @st.cache_data
     def generate_recommended_shipments(prediction_dict, weeks_of_cover_dict, recommended_shipments = None, explanations = None):
         
         predictions = prediction_dict.copy()
@@ -375,31 +376,28 @@ if excel_sht:
 
         #####################################
         # START SHIPMENT PLANNING
-        
         @st.fragment
-        def shipment_planning_func(predicted_df):
+        def shipment_planning_func():
         
-            pred_df = predicted_df
             st.header("Shipment Planning")
 
 ################################
             # SPLIT TABS INTO AUTO-RECS
-
-            #shipment_memory = pd.DataFrame()
-            #weeks_cover = st.number_input(label = "Weeks of Cover",
-            #                              min_value = 0, 
-            #                              max_value = 15,
-            #                              value = woc_dict[sku],
-            #                              key = f"wks_cvr{sku}")
+            temp_logic = ""
+            temp_weeks_cover = st.number_input(label = "Weeks of Cover",
+                                          min_value = 0, 
+                                          max_value = 15,
+                                          value = st.session_state.woc_dict[sku],
+                                          key = f"wks_cvr{sku}")
             
-            #temp_woc_dict = {sku: woc for sku in list(sku_data.keys())}
-            #temp_woc_dict[sku] = weeks_cover
-            temp_logic = copy.deepcopy(st.session_state.logic)
+            temp_woc_dict = copy.deepcopy(st.session_state.woc_dict)
 
-            #auto_shp_rec_df, auto_pred_df = generate_recommended_shipments(pred_dict, temp_woc_dict)
+            temp_woc_dict[sku] = temp_weeks_cover
+            temp_pred_dct = copy.deepcopy(st.session_state.pred_dict)
+
+            temp_shipment_memory, temp_prediction_memory, temp_logic = generate_recommended_shipments(temp_pred_dct, temp_woc_dict)
 
             with st.expander("Shipment Logic"):
-
                 temp_sku_logs = temp_logic.get(sku)
                     
                 if temp_sku_logs:
@@ -409,11 +407,10 @@ if excel_sht:
                 else:
                     st.info("No logs for this SKU.")
 
-            auto_pred_df_long = st.session_state.predictions[sku].reset_index().melt(id_vars=["Week Ending"], 
-                                                                value_vars=["Forecasted Units Sold", "Forecasted Inventory"], 
-                                                                var_name="Metric", value_name="Value")
+            auto_pred_df_long = temp_prediction_memory[sku].reset_index().melt(id_vars=["Week Ending"], 
+                                                                               value_vars=["Forecasted Units Sold", "Forecasted Inventory"], 
+                                                                               var_name="Metric", value_name="Value")
 
-            # st.table(st.session_state.predictions[sku])
             # Create Line Chart
             auto_chart = alt.Chart(auto_pred_df_long).mark_line().encode(
                                 x="Week Ending:T",
@@ -423,20 +420,20 @@ if excel_sht:
             final_auto_chart = auto_chart.properties(width=900, height=400).interactive()
             st.altair_chart(final_auto_chart, use_container_width=False)
 
-            #if st.button(label = "Approve and Update Shipments",
-             #           key = f"AUTO_SHIPMENT_APPROVAL{sku}"):
-             #   shipment_memory = auto_shp_rec_df
-             #   shipment_memory["SKU"] = sku
-             #   st.session_state.shipments = st.session_state.shipments[st.session_state.shipments["SKU"] != sku]
-             #   st.session_state.shipments = pd.concat([st.session_state.shipments, shipment_memory])
-             #   st.rerun()
-             #   st.success(f"{sku} Shipments saved!")
+            st.write(temp_shipment_memory.sort_values(by="Creation Date"))
 
-        shipment_planning_func(predicted_df = pred_df)
+            #return temp_shipment_memory, temp_prediction_memory, temp_logic, temp_woc_dict
+            if st.button(label = "Approve and Update Shipments",
+                         key = f"AUTO_SHIPMENT_APPROVAL{sku}"):
+                st.session_state.predictions = temp_prediction_memory
+                st.session_state.logic = temp_logic
+                st.session_state.shipments = temp_shipment_memory
+                st.session_state.woc_dict = temp_woc_dict
+                st.rerun()
+                st.success(f"{sku} Shipments saved!")
 
+        shipment_planning_func()
 
-
-    
     with shpt_ovr_tab:
 
         woc = st.number_input(label = "Weeks of Cover",
@@ -444,26 +441,31 @@ if excel_sht:
                        max_value = 15,
                        value = 10,
                        key = "OVRVW_WOC")
-        woc_dict = {sku: woc for sku in list(sku_data.keys())}
+
+        #st.session_state.
+        if "woc_dict" not in st.session_state.keys():
+            st.session_state.woc_dict = {sku: woc for sku in list(sku_data.keys())}
         
         @st.fragment
         def run_init_shipments(weeks_cover):
             st.session_state.shipments = pd.DataFrame()
             st.session_state.predictions = pd.DataFrame()
             st.session_state.logic = ""
-            shipment_memory = pd.DataFrame()
             
-            pred_dict = run_forecast(data = SC_demand_filled, cross_validation = cv)
+            if "pred_dict" not in st.session_state.keys():
+                st.session_state.pred_dict = run_forecast(data = SC_demand_filled, cross_validation = cv)
+            prediction_dict = copy.deepcopy(st.session_state.pred_dict)
                 
-            st.session_state.shipments, st.session_state.predictions, st.session_state.logic = generate_recommended_shipments(pred_dict, woc_dict)
+            st.session_state.shipments, st.session_state.predictions, st.session_state.logic = generate_recommended_shipments(prediction_dict, weeks_cover)
 
             
         if st.button(label = "Run Shipment Recommendations",
                      key = "GLOBAL_SHIPMENT_RECO"):
-            run_init_shipments(weeks_cover = woc)
+            st.session_state.woc_dict = {sku: woc for sku in list(sku_data.keys())}
+            run_init_shipments(weeks_cover = st.session_state.woc_dict)
 
         if st.session_state.shipments.empty:
-                run_init_shipments(weeks_cover = woc)
+                run_init_shipments(weeks_cover = st.session_state.woc_dict)
 
         # displays
         
@@ -485,6 +487,39 @@ if excel_sht:
                         st.markdown(f"- {log_entry}")
                 else:
                     st.info("No logs for this SKU.")
+
+
+        def calculate_storage_fees():
+            def apply_storage_fee(date, volume):
+                # January to September
+                if date.month in range(1, 10): 
+                    return volume * 0.87
+                # October to December
+                else:  
+                    return volume * 2.40
+            
+            total_inv_df = pd.DataFrame()
+            for sku in st.session_state.predictions.keys():
+            
+                if sku[12:15]=="BIB":
+                    volume = 0.5
+                if sku[11:14]=="750" or sku[11:14]=="712":
+                    volume = 0.044
+                if sku[11:14]=="220":
+                    volume = 0.1
+                if sku[11:14]=="500" or sku[11:14]=="512":
+                    volume = 0.031
+                
+                total_inv_df = pd.concat([total_inv_df, st.session_state.predictions[sku].groupby(pd.Grouper(freq = "ME"))[["Forecasted Inventory"]].mean() * volume])
+            
+            # divide by # of fulfillment centers
+            monthly_total = total_inv_df.groupby("Week Ending")["Forecasted Inventory"].sum()/150
+            return pd.Series({date: apply_storage_fee(date, volume) for date, volume in monthly_total.items()})
+        strg_fees = calculate_storage_fees()
+
+        st.header(f"Estimated Storage Fees (next 42 Weeks): ${round(strg_fees.sum(),2)}")
+        st.line_chart(strg_fees)
+        
 
         
         @st.fragment
