@@ -51,6 +51,8 @@ if inv_csv:
     inv_cols_of_interest = ['afn-warehouse-quantity', 'afn-inbound-working-quantity', 'afn-inbound-shipped-quantity', 'afn-inbound-receiving-quantity', 'afn-unsellable-quantity']
     inv_dt = inv_dt.groupby("sku")[inv_cols_of_interest].sum()
     current_inventory_levels = inv_dt.iloc[:,:4].sum(axis=1) - inv_dt['afn-unsellable-quantity']
+    # update SKU Data to only include values in the inventory report
+    sku_data = {sku:sku_data[sku] for sku in sku_data if sku in current_inventory_levels.keys()}
 
 with intro_tab:
 
@@ -99,7 +101,7 @@ Running **Run Shipment Recommendations** in the **Overview tab** will **erase al
     st.divider()
 
       
-if excel_sht:
+if excel_sht and inv_csv:
     SC_demand = pd.read_excel(excel_sht,
                             sheet_name = "Data")[["Week Ending", "SKU", "Units Ordered", "Units Ordered - B2B"]].rename({"Units Ordered":"Units Sold",
                                                                                                                         "Units Ordered - B2B": "Units Sold - B2B"},
@@ -107,13 +109,9 @@ if excel_sht:
 
     SC_demand["Week Ending"] = pd.to_datetime(SC_demand["Week Ending"])
     SC_demand["SKU"] = SC_demand["SKU"].replace(sku_replacement)
-    SC_demand = SC_demand[SC_demand["SKU"].isin(["40-05-WTO-A220-CS", "40-05-BTO-A220-CS", 
-                                                 "40-05-EVO-A712-CS", "40-05-EVO-0750-CS", 
-                                                 "40-05-HZL-0500-CS", "40-05-WAL-50BIB-CS", 
-                                                 "40-05-AVO-50BIB-CS", "40-05-TSO-50BIB-CS", 
-                                                 "40-05-GSO-50BIB-CS", "40-05-PEA-50BIB-CS", 
-                                                 "40-05-EVO-50BIB-CS", "40-05-OCA-50BIB-CS"])].reset_index(drop=True)
 
+    SC_demand = SC_demand[SC_demand["SKU"].isin(list(sku_data.keys()))].reset_index(drop=True)
+         
     SC_demand = SC_demand.groupby(["SKU",
                                 pd.Grouper(key="Week Ending",
                                             freq = "W-SAT")])[["Units Sold", "Units Sold - B2B"]].sum().reset_index().drop_duplicates()
@@ -487,53 +485,14 @@ if excel_sht:
                         st.markdown(f"- {log_entry}")
                 else:
                     st.info("No logs for this SKU.")
-
-
-        def calculate_storage_fees():
-            def apply_storage_fee(date, volume):
-                # January to September
-                if date.month in range(1, 10): 
-                    return volume * 0.87
-                # October to December
-                else:  
-                    return volume * 2.40
-            
-            total_inv_df = pd.DataFrame()
-            for sku in st.session_state.predictions.keys():
-            
-                if sku[12:15]=="BIB":
-                    volume = 0.5
-                if sku[11:14]=="750" or sku[11:14]=="712":
-                    volume = 0.044
-                if sku[11:14]=="220":
-                    volume = 0.1
-                if sku[11:14]=="500" or sku[11:14]=="512":
-                    volume = 0.031
-                
-                total_inv_df = pd.concat([total_inv_df, st.session_state.predictions[sku].groupby(pd.Grouper(freq = "ME"))[["Forecasted Inventory"]].mean() * volume])
-            
-            # divide by # of fulfillment centers
-            monthly_total = total_inv_df.groupby("Week Ending")["Forecasted Inventory"].sum()/150
-            return pd.Series({date: apply_storage_fee(date, volume) for date, volume in monthly_total.items()})
-        strg_fees = calculate_storage_fees()
-
-        st.header(f"Estimated Storage Fees (next 42 Weeks): ${round(strg_fees.sum(),2)}")
-        st.line_chart(strg_fees)
         
-
-        
-        @st.fragment
-        def download_data():
-                if st.button("Download Shipments"):
-                        st.table(st.session_state.shipments)
-                        st.download_button(
-                            label = "Download Shipments Data",
-                            data = st.session_state.shipments.to_csv(index=False),
-                            file_name = "shipments.csv",
-                            mime="text/csv",
-                            key="Download_Shipments"
-                            )
-        download_data()
+        st.download_button(
+            label = "Download Shipments Data",
+            data = st.session_state.shipments.to_csv(index=False),
+            file_name = "shipments.csv",
+            mime="text/csv",
+            key="Download_Shipments"
+            )
     
 
     with shp_inspct_tab:
