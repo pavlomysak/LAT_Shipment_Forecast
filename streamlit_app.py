@@ -510,17 +510,4 @@ if excel_sht and inv_csv:
                     case_qty =  sku_data[insp_sku][1], 
                     pallet_qty =  sku_data[insp_sku][2])
             
-    with intro_tab:
-        
-        @st.fragment
-        def clear_memory():
-            for key in st.session_state.keys():
-                del st.session_state[key]
-            st.cache_data.clear()
-            st.cache_resource.clear()
-            st.rerun()
-        
-        if st.button(label = "Clear All Session Data & Rerun App",
-                     key = "clear_cache"):
-            clear_memory()
             
