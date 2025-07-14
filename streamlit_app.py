@@ -37,7 +37,10 @@ sku_data = {"40-05-BTO-A220-CS": ["1999-01-01", 20, 75],
             "40-05-GSO-50BIB-CS": ["2023-01-01", 3, 60],
             "40-05-EVO-50BIB-CS": ["2023-01-01", 3, 60],
             "40-05-PEA-50BIB-CS": ["2023-01-01", 3, 60],
-            "40-05-OCA-50BIB-CS": ["2023-01-01", 3, 60]}
+            "40-05-OCA-50BIB-CS": ["2023-01-01", 3, 60],
+            "40-05-RSU-0500-CS": ["2024-01-01", 6, 196],
+            "40-05-PIO-0250-CS": ["2024-01-01", 6, 294]}
+
 sku_replacement = {"40-05-WTO-A220-CS-stickerless":"40-05-WTO-A220-CS",
                    "40-05-EVO-0750-CS-stickerless": "40-05-EVO-0750-CS",
                    "40-05-EVO-A712-CS": "40-05-EVO-0750-CS",
@@ -218,7 +221,7 @@ if excel_sht and inv_csv:
         return max(min_qty, np.round(EOQ))
 
     @st.cache_data
-    def generate_recommended_shipments(prediction_dict, weeks_of_cover_dict, recommended_shipments = None, explanations = None):
+    def generate_recommended_shipments(prediction_dict, weeks_of_cover_dict, recommended_shipments = None, explanations = None, loops=0):
         
         predictions = prediction_dict.copy()
 
@@ -242,7 +245,7 @@ if excel_sht and inv_csv:
         
 
         # BASE CASE ################ ---------------------------------------------------
-        if all([value.iloc[-1,1]!=0 for value in predictions.values()]):
+        if ((all([value.iloc[-1,1]!=0 for value in predictions.values()])) or (loops == 20)):
             recod_shipments = pd.DataFrame(recommended_shipments)
             cases = []
             pallets = []
@@ -265,7 +268,7 @@ if excel_sht and inv_csv:
                 print(f"------------- {sku} ----------------------------------------------")
 
                 # Trigger shipment if inventory just dropped to 0
-                if (predictions[sku]["Forecasted Inventory"][week_i:].sum() == 0) & (predictions[sku]["Forecasted Inventory"][week_i - 1] != 0):
+                if ((predictions[sku]["Forecasted Inventory"][week_i:].sum() == 0) & ((predictions[sku]["Forecasted Inventory"][week_i - 1] != 0) or (week_i == 1))):
                     print(f"TRIGGER SHIPMENT -- FUTURE INV SUM: {predictions[sku]['Forecasted Inventory'][week_i:].sum()}; last week inventory: {predictions[sku]['Forecasted Inventory'][week_i - 1]}")
                     zero_date = predictions[sku].index[week_i]
                     shp_avail_dt = zero_date - pd.Timedelta(weeks=weeks_of_cover_dict[sku])
@@ -359,9 +362,9 @@ if excel_sht and inv_csv:
                 prev_inv = predictions[shp_sku]["Forecasted Inventory"][j - 1]
                 units_sold = predictions[shp_sku]["Forecasted Units Sold"][j - 1]
                 predictions[shp_sku]["Forecasted Inventory"][j] = max(prev_inv - units_sold, 0)
-
+        new_loops = loops+1
         print("RECURSING...")
-        return generate_recommended_shipments(prediction_dict = predictions, weeks_of_cover_dict = weeks_of_cover_dict, recommended_shipments = recommended_shipments, explanations = explanations)
+        return generate_recommended_shipments(prediction_dict = predictions, weeks_of_cover_dict = weeks_of_cover_dict, recommended_shipments = recommended_shipments, explanations = explanations, loops = new_loops)
 
 
 
@@ -506,4 +509,18 @@ if excel_sht and inv_csv:
                     pred_df = st.session_state.predictions[insp_sku], 
                     case_qty =  sku_data[insp_sku][1], 
                     pallet_qty =  sku_data[insp_sku][2])
+            
+    with intro_tab:
+        
+        @st.fragment
+        def clear_memory():
+            for key in st.session_state.keys():
+                del st.session_state[key]
+            st.cache_data.clear()
+            st.cache_resource.clear()
+            st.rerun()
+        
+        if st.button(label = "Clear All Session Data & Rerun App",
+                     key = "clear_cache"):
+            clear_memory()
             
