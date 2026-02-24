@@ -146,7 +146,7 @@ if excel_sht and inv_csv:
                 
             last_date = data.index.max()
             horizon = 42
-            y_data = data[(data["SKU"]==sc_sku)].loc[:,"Units Sold"]
+            y_data = data[(data["SKU"]==sc_sku)].loc[:,"Units Sold"].asfreq("W-SAT")
             cv = cross_validation
             
                 # LightGBM Forecaster
